@@ -1,7 +1,9 @@
-# -GIT--Personal-Website
+# personal-website
 
+Code for my personal website (https://sumanyuj.com).
 
-This is a the code repo for my personal website project hosted on the web. (sumanyuj.com)
+## Local usage
 
+- Open `index.html` directly in a browser, or
+- Run a local server (recommended): `python3 -m http.server` and visit `http://localhost:8000`.
 
-Most of the interactivity of the website is with me, in items like my resume, blog, and plugs.
