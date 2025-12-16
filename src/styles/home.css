@@ -52,7 +52,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 25px;
 }
 
 .epic {
@@ -70,7 +70,7 @@ body {
   gap: 22px;
   align-items: center;
   justify-content: center;
-  margin-top: -18px;
+  margin-top: -12px;
 }
 
 .social a {
@@ -91,7 +91,7 @@ body {
   gap: 18px;
   justify-content: center;
   align-items: center;
-  margin-top: 2px;
+  margin-top: 6px;
 }
 
 .pod {
@@ -131,12 +131,45 @@ body {
   transform: translateY(0);
 }
 
+.elegant-button {
+  text-decoration: none;
+  background-color: #ff2d34;
+  border: 2px solid white;
+  color: #ffffff;
+  padding: 15px 32px;
+  text-align: center;
+  display: inline-block;
+  font-size: 30px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: "Adello";
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 650ms ease, transform 650ms ease, background-color 200ms ease,
+    color 200ms ease;
+}
+
+.elegant-button.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .elegant-button2:hover {
   background-color: white;
   color: black;
 }
 
+.elegant-button:hover {
+  background-color: white;
+  color: black;
+}
+
 .elegant-button2:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 6px;
+}
+
+.elegant-button:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 6px;
 }
@@ -152,6 +185,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .elegant-button2 {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  .elegant-button {
     transition: none;
     opacity: 1;
     transform: none;

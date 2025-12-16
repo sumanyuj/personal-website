@@ -52,6 +52,12 @@ export default function HomePage() {
           >
             <em>Projects</em>
           </a>
+          <a
+            className={`elegant-button ${showProjects ? 'visible' : ''}`}
+            href="https://sumanyuj.com/one-thing"
+          >
+            <em>One Thing</em>
+          </a>
         </div>
       </main>
 
@@ -70,4 +76,3 @@ export default function HomePage() {
     </>
   );
 }
-
