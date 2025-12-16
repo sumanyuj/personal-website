@@ -27,7 +27,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
 
           # Add host key so SSH won't prompt interactively
-          ssh-keyscan -p "${{ secrets.CPANEL_PORT }}" -H "${{ secrets.CPANEL_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p 22 -H "${{ secrets.CPANEL_HOST }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy (mirror) to public_html
