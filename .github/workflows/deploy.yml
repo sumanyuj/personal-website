@@ -23,16 +23,14 @@ jobs:
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          # Write private key safely (printf avoids weird echo behavior)
           printf '%s' "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
 
-          # SSH config: accept-new avoids ssh-keyscan and still protects you after first connect
-          cat > ~/.ssh/config <<'EOF'
+          cat > ~/.ssh/config <<EOF
           Host cpanel
             HostName ${{ secrets.CPANEL_HOST }}
             User ${{ secrets.CPANEL_USER }}
-            Port 22
+            Port ${{ secrets.CPANEL_PORT }}
             IdentityFile ~/.ssh/id_deploy
             IdentitiesOnly yes
             StrictHostKeyChecking accept-new
@@ -45,10 +43,11 @@ jobs:
         run: |
           set -euo pipefail
           HOST="${{ secrets.CPANEL_HOST }}"
-          echo "Checking TCP 22 on $HOST..."
-          timeout 8 bash -c "cat < /dev/null > /dev/tcp/$HOST/22" \
-            && echo "Port 22 reachable" \
-            || (echo "Port 22 NOT reachable from GitHub Actions (blocked/disabled/wrong host)." && exit 1)
+          PORT="${{ secrets.CPANEL_PORT }}"
+          echo "Checking TCP $PORT on $HOST..."
+          timeout 8 bash -c "cat < /dev/null > /dev/tcp/$HOST/$PORT" \
+            && echo "Port $PORT reachable" \
+            || (echo "Port $PORT NOT reachable" && exit 1)
 
       - name: Test SSH login
         shell: bash
@@ -60,7 +59,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           rsync -avz --delete \
             --exclude ".git/" \
             --exclude ".github/" \
