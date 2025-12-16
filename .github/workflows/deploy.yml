@@ -41,6 +41,6 @@ jobs:
             --exclude ".gitignore" \
             --exclude "README.md" \
             --exclude "blog/" \
-            -e "ssh -p ${{ secrets.CPANEL_PORT }} -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
+            -e "ssh -p 22 -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
             ./ \
             "${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }}:/home/${{ secrets.CPANEL_USER }}/public_html/"
