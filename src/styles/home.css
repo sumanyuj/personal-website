@@ -1,0 +1,159 @@
+@font-face {
+  font-family: "Golden Decades";
+  src: url("../../fonts/Fontspring-DEMO-goldendecades-regular.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Golden Decades";
+  src: url("../../fonts/Fontspring-DEMO-goldendecades-smbold.otf") format("opentype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Golden Decades";
+  src: url("../../fonts/Fontspring-DEMO-goldendecades-italic.otf") format("opentype");
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Adello";
+  src: url("../../Adelle Mono Italic.ttf") format("truetype");
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Golden Decades", sans-serif;
+}
+
+body {
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.hero {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.epic {
+  margin: 0;
+  text-align: center;
+  font-family: "Golden Decades", sans-serif;
+  font-size: calc(75px + 2vw);
+  line-height: 0.95;
+  text-shadow: 2px 4px 4px rgba(0, 0, 0, 0.15);
+  color: rgb(255, 255, 255);
+}
+
+.social {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  justify-content: center;
+  margin-top: -18px;
+}
+
+.social a {
+  text-decoration: none;
+  color: #ffffff;
+  font-size: 70px;
+}
+
+.social a:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 6px;
+  border-radius: 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.pod {
+  position: absolute;
+  width: 120px;
+  height: 50px;
+  border: 1px solid #ff2d34;
+  border-radius: 5px;
+  line-height: 50px;
+  text-align: center;
+  background-color: lightgray;
+  transform-origin: center center;
+  z-index: 1;
+  user-select: none;
+}
+
+.elegant-button2 {
+  text-decoration: none;
+  background-color: #17307c;
+  border: 2px solid white;
+  color: #ffffff;
+  padding: 15px 32px;
+  text-align: center;
+  display: inline-block;
+  font-size: 30px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: "Adello";
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 650ms ease, transform 650ms ease, background-color 200ms ease,
+    color 200ms ease;
+}
+
+.elegant-button2.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.elegant-button2:hover {
+  background-color: white;
+  color: black;
+}
+
+.elegant-button2:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 6px;
+}
+
+@media (max-width: 520px) {
+  .social {
+    margin-top: -10px;
+  }
+  .social a {
+    font-size: 58px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .elegant-button2 {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}

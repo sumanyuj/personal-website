@@ -1,29 +1,12 @@
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('Your web page is loaded and ready!');
-});
+import { useEffect } from 'react';
+import Matter from 'matter-js';
 
-(() => {
-  const reduceMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  function initButtons() {
-    const myButton = document.getElementById('myButton');
-    const newButton = document.getElementById('newButton');
-    if (!myButton || !newButton) return;
-
-    const delay = reduceMotion ? 0 : 500;
-    const stagger = reduceMotion ? 0 : 600;
-
-    window.setTimeout(() => {
-      myButton.classList.add('visible');
-      window.setTimeout(() => newButton.classList.add('visible'), stagger);
-    }, delay);
-  }
-
-  function initPodsPhysics() {
-    if (typeof Matter === 'undefined') return;
+export default function usePodsPhysics() {
+  useEffect(() => {
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const podIds = ['pod1', 'pod2', 'pod3', 'pod4'];
     const podEls = podIds.map((id) => document.getElementById(id));
@@ -94,14 +77,18 @@ document.addEventListener('DOMContentLoaded', () => {
     World.add(engine.world, [boundaries.ground, boundaries.leftWall, boundaries.rightWall]);
 
     const podDelaysMs = reduceMotion ? [0, 0, 0, 0] : [200, 600, 1000, 1400];
+    const timeouts = [];
     podBodies.forEach((body, i) => {
-      window.setTimeout(() => World.add(engine.world, body), podDelaysMs[i] ?? 0);
+      timeouts.push(
+        window.setTimeout(() => World.add(engine.world, body), podDelaysMs[i] ?? 0)
+      );
     });
 
     const runner = Runner.create();
     Runner.run(runner, engine);
     Render.run(render);
 
+    let rafId = 0;
     const updatePods = () => {
       for (let i = 0; i < podEls.length; i++) {
         const el = podEls[i];
@@ -110,12 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
         el.style.top = `${body.position.y}px`;
         el.style.transform = `translate(-50%, -50%) rotate(${body.angle}rad)`;
       }
-      window.requestAnimationFrame(updatePods);
+      rafId = window.requestAnimationFrame(updatePods);
     };
-    window.requestAnimationFrame(updatePods);
+    rafId = window.requestAnimationFrame(updatePods);
 
     let resizeTimer = null;
-    window.addEventListener('resize', () => {
+    const onResize = () => {
       if (resizeTimer) window.clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(() => {
         const width = window.innerWidth;
@@ -146,10 +133,22 @@ document.addEventListener('DOMContentLoaded', () => {
         Body.setPosition(boundaries.rightWall, next.rightWall.position);
         Body.setVertices(boundaries.rightWall, next.rightWall.vertices);
       }, 150);
-    });
-  }
+    };
 
-  initButtons();
-  initPodsPhysics();
-})();
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+      for (const t of timeouts) window.clearTimeout(t);
+      if (rafId) window.cancelAnimationFrame(rafId);
+      Render.stop(render);
+      Runner.stop(runner);
+      World.clear(engine.world, false);
+      Engine.clear(engine);
+      render.canvas.remove();
+      render.textures = {};
+    };
+  }, []);
+}
 

@@ -15,6 +15,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
       - name: Setup SSH
         shell: bash
         run: |
@@ -62,11 +74,29 @@ jobs:
         run: |
           set -euo pipefail
           rsync -avz --delete \
-            --exclude ".git/" \
-            --exclude ".github/" \
-            --exclude ".gitignore" \
-            --exclude "README.md" \
             --exclude "blog/" \
+            --exclude "cgi-bin/" \
+            --exclude "ssl-manager.php" \
             -e "ssh" \
-            ./ \
+            ./dist/ \
             "cpanel:/home/${{ secrets.CPANEL_USER }}/public_html/"
+
+      - name: Deploy cgi-bin (mirror)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "./cgi-bin" ]; then
+            rsync -avz --delete -e "ssh" \
+              ./cgi-bin/ \
+              "cpanel:/home/${{ secrets.CPANEL_USER }}/public_html/cgi-bin/"
+          fi
+
+      - name: Deploy ssl-manager.php
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "./ssl-manager.php" ]; then
+            rsync -avz -e "ssh" \
+              ./ssl-manager.php \
+              "cpanel:/home/${{ secrets.CPANEL_USER }}/public_html/ssl-manager.php"
+          fi

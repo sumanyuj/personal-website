@@ -4,6 +4,6 @@ Code for my personal website (https://sumanyuj.com).
 
 ## Local usage
 
-- Open `index.html` directly in a browser, or
-- Run a local server (recommended): `python3 -m http.server` and visit `http://localhost:8000`.
-
+- Install dependencies: `npm install`
+- Start dev server: `npm run dev`
+- Build production bundle: `npm run build` (outputs `dist/`)

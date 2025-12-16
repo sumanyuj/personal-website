@@ -6,84 +6,12 @@
 
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <link rel="stylesheet" href="style2.css?v=1.4">
+    <link rel="icon" href="icons8-code-96.png" type="image/png" />
 
     <title>Projects</title>
   </head>
   <body>
-    <header class="container text-center mt-4">
-      <h1 class="epic"><em>Projects</em></h1>
-      <p><a href="index.html" class="btn">← Home</a></p>
-    </header>
-
-    <div class="container mx-auto mt-4">
-      <div class="row">
-        <div class="col-12 d-flex justify-content-center">
-          <div class="card" style="width: 50rem;">
-            <img src="lifeGDP.png" class="card-img-top" alt="Life expectancy vs GDP visualization">
-            <div class="card-body">
-              <h5 class="card-title">Life-Expectancy-to-GDP</h5>
-              <h6 class="card-subtitle mb-2 text-muted">Python Data Analysis</h6>
-              <p class="card-text">
-                What is the relationship between GDP and Life-Expectancy? Using various python libraries (pandas,
-                matplotlib, and seaborn) and data from the WHO and the World Bank, I will seek to find that out in a
-                visual investigation!
-              </p>
-              <a
-                href="https://github.com/sumanyuj/Life-Expectancy-and-GDP-Project"
-                class="btn"
-                target="_blank"
-                rel="noopener noreferrer"
-              ><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 d-flex justify-content-center">
-          <div class="card" style="width: 50rem;">
-            <img src="biodiverse.png" class="card-img-top" alt="Biodiversity and national parks visualization">
-            <div class="card-body">
-              <h5 class="card-title">Biodiversity &amp; National Parks</h5>
-              <h6 class="card-subtitle mb-2 text-muted">Python Data Analysis</h6>
-              <p class="card-text">
-                Many thousands of species are at various degrees of risk across the world. By limiting our field to
-                parks in the United States and finding patterns of the kinds of species at risk, the rate of
-                observations for endangered and non-at-risk species alike, we can perhaps clue together what kind of
-                species are most likley at risk, at which parks, and more!
-              </p>
-              <a
-                href="https://github.com/sumanyuj/Biodiversity-Project"
-                class="btn"
-                target="_blank"
-                rel="noopener noreferrer"
-              ><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 d-flex justify-content-center">
-          <div class="card" style="width: 50rem;">
-            <img src="nycApart.png" class="card-img-top" alt="NYC apartments dataset visualization">
-            <div class="card-body">
-              <h5 class="card-title">NYC Apartments</h5>
-              <h6 class="card-subtitle mb-2 text-muted">Python Data Analysis</h6>
-              <p class="card-text">
-                New York has one of the most expensive housing markets in the world- this much is well known. But
-                digging beyond that, can we use the power of python and its powerful data-oriented libraries to find
-                unique yet interesting corrleations between variables in apartment data? Using data provided from
-                StreetEasy, I perform a visual analysis of a NYC apartment dataset to come to some interesting
-                conclusions!
-              </p>
-              <a
-                href="https://github.com/sumanyuj/NYC-Apartments-Project"
-                class="btn"
-                target="_blank"
-                rel="noopener noreferrer"
-              ><i class="fab fa-github" aria-hidden="true"></i> GitHub</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/projects/main.jsx"></script>
   </body>
 </html>
