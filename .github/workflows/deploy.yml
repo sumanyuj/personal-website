@@ -19,11 +19,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          printf '%s' "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/id_deploy
+          cat > ~/.ssh/id_deploy <<'KEY'
+          ${{ secrets.CPANEL_SSH_KEY }}
+          KEY
           chmod 600 ~/.ssh/id_deploy
 
           cat > ~/.ssh/config <<EOF
@@ -37,6 +38,7 @@ jobs:
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
           chmod 600 ~/.ssh/config
+
 
       - name: Check SSH port is reachable
         shell: bash
