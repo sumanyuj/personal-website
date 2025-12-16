@@ -40,6 +40,8 @@ body {
 body {
   background-color: #000000;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .hero {
@@ -106,29 +108,7 @@ body {
   transform-origin: center center;
   z-index: 1;
   user-select: none;
-}
-
-.elegant-button2 {
-  text-decoration: none;
-  background-color: #17307c;
-  border: 2px solid white;
-  color: #ffffff;
-  padding: 15px 32px;
-  text-align: center;
-  display: inline-block;
-  font-size: 30px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-family: "Adello";
-  opacity: 0;
-  transform: translateY(18px);
-  transition: opacity 650ms ease, transform 650ms ease, background-color 200ms ease,
-    color 200ms ease;
-}
-
-.elegant-button2.visible {
-  opacity: 1;
-  transform: translateY(0);
+  pointer-events: none;
 }
 
 .elegant-button {
@@ -154,19 +134,9 @@ body {
   transform: translateY(0);
 }
 
-.elegant-button2:hover {
-  background-color: white;
-  color: black;
-}
-
 .elegant-button:hover {
   background-color: white;
   color: black;
-}
-
-.elegant-button2:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 6px;
 }
 
 .elegant-button:focus-visible {
@@ -184,11 +154,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .elegant-button2 {
-    transition: none;
-    opacity: 1;
-    transform: none;
-  }
   .elegant-button {
     transition: none;
     opacity: 1;

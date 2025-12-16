@@ -12,7 +12,7 @@ export default function usePodsPhysics() {
     const podEls = podIds.map((id) => document.getElementById(id));
     if (podEls.some((el) => !el)) return;
 
-    const { Engine, Render, World, Bodies, Runner, Body } = Matter;
+    const { Engine, Render, World, Bodies, Runner, Body, Mouse, MouseConstraint } = Matter;
 
     const engine = Engine.create();
     const render = Render.create({
@@ -40,9 +40,10 @@ export default function usePodsPhysics() {
       const startY = -100 - index * 80;
 
       return Bodies.rectangle(startX, startY, width, height, {
-        restitution: 0.9,
+        restitution: 0.93,
         friction: 0.02,
         frictionStatic: 0,
+        frictionAir: 0.01,
         render: { visible: false }
       });
     });
@@ -80,9 +81,29 @@ export default function usePodsPhysics() {
     const timeouts = [];
     podBodies.forEach((body, i) => {
       timeouts.push(
-        window.setTimeout(() => World.add(engine.world, body), podDelaysMs[i] ?? 0)
+        window.setTimeout(() => {
+          World.add(engine.world, body);
+          Body.setVelocity(body, {
+            x: (Math.random() - 0.5) * 1.2,
+            y: 1.2 + Math.random() * 0.6
+          });
+          Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.035);
+        }, podDelaysMs[i] ?? 0)
       );
     });
+
+    const mouse = Mouse.create(document.body);
+    mouse.pixelRatio = window.devicePixelRatio || 1;
+    const mouseConstraint = MouseConstraint.create(engine, {
+      mouse,
+      constraint: {
+        stiffness: 0.35,
+        damping: 0.12,
+        render: { visible: false }
+      }
+    });
+    World.add(engine.world, mouseConstraint);
+    render.mouse = mouse;
 
     const runner = Runner.create();
     Runner.run(runner, engine);
@@ -151,4 +172,3 @@ export default function usePodsPhysics() {
     };
   }, []);
 }
-

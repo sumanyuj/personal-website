@@ -10,11 +10,11 @@ export default function HomePage() {
   usePodsPhysics();
 
   const reduceMotion = useMemo(() => prefersReducedMotion(), []);
-  const [showProjects, setShowProjects] = useState(reduceMotion);
+  const [showButton, setShowButton] = useState(reduceMotion);
 
   useEffect(() => {
     if (reduceMotion) return;
-    const timeoutId = window.setTimeout(() => setShowProjects(true), 250);
+    const timeoutId = window.setTimeout(() => setShowButton(true), 250);
     return () => window.clearTimeout(timeoutId);
   }, [reduceMotion]);
 
@@ -47,13 +47,7 @@ export default function HomePage() {
 
         <div className="actions">
           <a
-            className={`elegant-button2 ${showProjects ? 'visible' : ''}`}
-            href="project.html"
-          >
-            <em>Projects</em>
-          </a>
-          <a
-            className={`elegant-button ${showProjects ? 'visible' : ''}`}
+            className={`elegant-button ${showButton ? 'visible' : ''}`}
             href="https://sumanyuj.com/one-thing"
           >
             <em>One Thing</em>
@@ -62,16 +56,16 @@ export default function HomePage() {
       </main>
 
       <div id="pod1" className="pod" aria-hidden="true">
-        Data Analysis
+        Spring Boot
       </div>
       <div id="pod2" className="pod" aria-hidden="true">
         Python
       </div>
       <div id="pod3" className="pod" aria-hidden="true">
-        Learning
+        React
       </div>
       <div id="pod4" className="pod" aria-hidden="true">
-        Machine
+        Java
       </div>
     </>
   );
