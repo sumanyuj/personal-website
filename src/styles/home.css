@@ -55,6 +55,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 25px;
+  pointer-events: none;
+}
+
+.hero a {
+  pointer-events: auto;
 }
 
 .epic {
