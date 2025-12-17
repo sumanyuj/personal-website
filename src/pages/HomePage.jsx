@@ -6,11 +6,32 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+const titleLines = ['Hello,', 'Sumanyu.'];
+
+function buildTitleItems(lines) {
+  let letterIndex = 0;
+  const items = [];
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+    for (const ch of line) {
+      if (ch === ' ') {
+        items.push({ type: 'space', key: `space-${lineIndex}-${letterIndex}` });
+        continue;
+      }
+      items.push({ type: 'letter', ch, letterIndex, key: `l-${letterIndex}` });
+      letterIndex += 1;
+    }
+    if (lineIndex < lines.length - 1) items.push({ type: 'br', key: `br-${lineIndex}` });
+  }
+  return items;
+}
+
 export default function HomePage() {
   usePodsPhysics();
 
   const reduceMotion = useMemo(() => prefersReducedMotion(), []);
   const [showButton, setShowButton] = useState(reduceMotion);
+  const titleItems = useMemo(() => buildTitleItems(titleLines), []);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -21,10 +42,36 @@ export default function HomePage() {
   return (
     <>
       <main className="hero">
-        <h1 className="epic">
-          Hello, <br />
-          Sumanyu.
+        <h1 className="epic epic--ghost" aria-label="Hello, Sumanyu.">
+          {titleItems.map((item) => {
+            if (item.type === 'br') return <br key={item.key} />;
+            if (item.type === 'space') return <span key={item.key}>&nbsp;</span>;
+            return (
+              <span
+                key={item.key}
+                className="title-ghost-letter"
+                data-title-ghost-letter={item.letterIndex}
+              >
+                {item.ch}
+              </span>
+            );
+          })}
         </h1>
+
+        <div id="titlePhysicsLayer" className="title-physics epic" aria-hidden="true">
+          {titleItems.map((item) => {
+            if (item.type !== 'letter') return null;
+            return (
+              <span
+                key={item.key}
+                className="title-letter"
+                data-title-phys-letter={item.letterIndex}
+              >
+                {item.ch}
+              </span>
+            );
+          })}
+        </div>
 
         <nav className="social" aria-label="Social links">
           <a

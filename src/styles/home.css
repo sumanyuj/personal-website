@@ -62,6 +62,35 @@ body {
   pointer-events: auto;
 }
 
+.title-ready .epic--ghost {
+  color: transparent;
+  text-shadow: none;
+}
+
+.title-ghost-letter {
+  display: inline-block;
+}
+
+.title-physics {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.title-letter {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  color: #ffffff;
+  text-shadow: 2px 4px 4px rgba(0, 0, 0, 0.15);
+  user-select: none;
+  will-change: transform;
+}
+
 .epic {
   margin: 0;
   text-align: center;

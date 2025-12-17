@@ -12,12 +12,16 @@ export default function usePodsPhysics() {
     const podEls = podIds.map((id) => document.getElementById(id));
     if (podEls.some((el) => !el)) return;
 
-    const { Engine, Render, World, Bodies, Runner, Body, Mouse, MouseConstraint, Events } = Matter;
+    const { Engine, Render, World, Bodies, Runner, Body, Mouse, MouseConstraint, Events, Constraint } =
+      Matter;
 
     const engine = Engine.create();
     engine.positionIterations = 10;
     engine.velocityIterations = 8;
     engine.constraintIterations = 4;
+    engine.gravity.x = 0;
+    engine.gravity.y = 1;
+    engine.gravity.scale = 0.001;
     const render = Render.create({
       element: document.body,
       engine,
@@ -38,24 +42,50 @@ export default function usePodsPhysics() {
     render.canvas.style.touchAction = 'none';
     render.canvas.style.webkitUserSelect = 'none';
 
+    const POD_CATEGORY = 0x0001;
+    const LETTER_CATEGORY = 0x0002;
+    const WALL_CATEGORY = 0x0004;
+
     const podBodies = podEls.map((el, index) => {
       const width = el.offsetWidth || 120;
       const height = el.offsetHeight || 50;
       const startX = (window.innerWidth * (index + 1)) / (podEls.length + 1);
       const startY = -100 - index * 80;
 
-      return Bodies.rectangle(startX, startY, width, height, {
+      const body = Bodies.rectangle(startX, startY, width, height, {
         restitution: 0.93,
         friction: 0.02,
         frictionStatic: 0,
         frictionAir: 0.01,
         render: { visible: false }
       });
+      body.plugin = { type: 'pod', index, landed: false };
+      body.collisionFilter.category = POD_CATEGORY;
+      body.collisionFilter.mask = POD_CATEGORY | LETTER_CATEGORY | WALL_CATEGORY;
+      return body;
     });
 
     for (const el of podEls) {
       el.style.visibility = 'hidden';
     }
+
+    const ghostLetterEls = Array.from(
+      document.querySelectorAll('[data-title-ghost-letter]')
+    ).sort(
+      (a, b) =>
+        Number(a.getAttribute('data-title-ghost-letter')) -
+        Number(b.getAttribute('data-title-ghost-letter'))
+    );
+    const physLetterEls = Array.from(
+      document.querySelectorAll('[data-title-phys-letter]')
+    ).sort(
+      (a, b) =>
+        Number(a.getAttribute('data-title-phys-letter')) -
+        Number(b.getAttribute('data-title-phys-letter'))
+    );
+    const titlePhysicsLayer = document.getElementById('titlePhysicsLayer');
+    const letterBodies = [];
+    const letterAnchors = [];
 
     const boundaryThickness = 140;
     const createBoundaries = (width, height) => {
@@ -87,16 +117,67 @@ export default function usePodsPhysics() {
         height + boundaryThickness * 2,
         { isStatic: true, render: { visible: false } }
       );
+      for (const wall of [ground, ceiling, leftWall, rightWall]) {
+        wall.collisionFilter.category = WALL_CATEGORY;
+        wall.collisionFilter.mask = POD_CATEGORY | LETTER_CATEGORY;
+      }
       return { ground, ceiling, leftWall, rightWall };
     };
 
     const boundaries = createBoundaries(window.innerWidth, window.innerHeight);
+    boundaries.ground.plugin = { type: 'ground' };
     World.add(engine.world, [
       boundaries.ground,
       boundaries.ceiling,
       boundaries.leftWall,
       boundaries.rightWall
     ]);
+
+    const cancelledRef = { current: false };
+    let lettersArmed = false;
+    const fontsReady = document.fonts?.ready ?? Promise.resolve();
+    fontsReady.then(() => {
+      if (cancelledRef.current) return;
+      if (!ghostLetterEls.length || ghostLetterEls.length !== physLetterEls.length) return;
+
+      for (let i = 0; i < ghostLetterEls.length; i++) {
+        const rect = ghostLetterEls[i].getBoundingClientRect();
+        const width = Math.max(6, rect.width);
+        const height = Math.max(10, rect.height);
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+
+        const body = Bodies.rectangle(x, y, width, height, {
+          isSensor: true,
+          restitution: 0.9,
+          friction: 0.02,
+          frictionAir: 0.02,
+          density: 0.001,
+          render: { visible: false }
+        });
+        body.plugin = { type: 'letter', index: i, dislodged: false };
+        body.collisionFilter.category = LETTER_CATEGORY;
+        body.collisionFilter.mask = POD_CATEGORY | LETTER_CATEGORY | WALL_CATEGORY;
+        letterBodies.push(body);
+      }
+
+      World.add(engine.world, letterBodies);
+      for (const body of letterBodies) {
+        const anchor = Constraint.create({
+          pointA: { x: body.position.x, y: body.position.y },
+          bodyB: body,
+          pointB: { x: 0, y: 0 },
+          length: 0,
+          stiffness: 1,
+          damping: 0.9
+        });
+        anchor.render.visible = false;
+        letterAnchors[body.plugin.index] = anchor;
+        World.add(engine.world, anchor);
+      }
+      if (titlePhysicsLayer) titlePhysicsLayer.style.visibility = 'visible';
+      document.documentElement.classList.add('title-ready');
+    });
 
     const inWorld = new Set();
 
@@ -129,6 +210,7 @@ export default function usePodsPhysics() {
     const mouse = Mouse.create(render.canvas);
     const mouseConstraint = MouseConstraint.create(engine, {
       mouse,
+      collisionFilter: { mask: POD_CATEGORY },
       constraint: {
         stiffness: 0.35,
         damping: 0.12,
@@ -138,15 +220,78 @@ export default function usePodsPhysics() {
     World.add(engine.world, mouseConstraint);
     render.mouse = mouse;
 
-    const maxLinearSpeed = 26;
-    const maxAngularSpeed = 0.25;
+    const dislodgeLetter = (letterBody, impactingBody) => {
+      if (letterBody.plugin?.type !== 'letter' || letterBody.plugin.dislodged) return;
+      if (!lettersArmed) return;
+      letterBody.plugin.dislodged = true;
+
+      const anchor = letterAnchors[letterBody.plugin.index];
+      if (anchor) {
+        World.remove(engine.world, anchor);
+        letterAnchors[letterBody.plugin.index] = null;
+      }
+
+      const dx = letterBody.position.x - impactingBody.position.x;
+      const dy = letterBody.position.y - impactingBody.position.y;
+      const mag = Math.hypot(dx, dy) || 1;
+      const nx = dx / mag;
+      const ny = dy / mag;
+      Body.setPosition(letterBody, {
+        x: letterBody.position.x + nx * 10,
+        y: letterBody.position.y + ny * 10
+      });
+
+      letterBody.isSensor = false;
+      for (const part of letterBody.parts) part.isSensor = false;
+      letterBody.collisionFilter.mask = POD_CATEGORY | LETTER_CATEGORY | WALL_CATEGORY;
+      letterBody.restitution = 1.12;
+      letterBody.frictionAir = 0.003;
+      letterBody.friction = 0.01;
+
+      const relVx = impactingBody.velocity.x - letterBody.velocity.x;
+      const relVy = impactingBody.velocity.y - letterBody.velocity.y;
+      const relSpeed = Math.hypot(relVx, relVy);
+      const launch = Math.max(14, relSpeed * 7.0);
+      Body.setVelocity(letterBody, {
+        x: impactingBody.velocity.x * 1.5 + nx * launch,
+        y: impactingBody.velocity.y * 1.5 + ny * launch
+      });
+      Body.setAngularVelocity(letterBody, (Math.random() - 0.5) * 0.5);
+    };
+
+    Events.on(engine, 'collisionStart', (event) => {
+      for (const pair of event.pairs) {
+        const a = pair.bodyA;
+        const b = pair.bodyB;
+        if (a.plugin?.type === 'ground' && b.plugin?.type === 'pod') {
+          b.plugin.landed = true;
+        } else if (b.plugin?.type === 'ground' && a.plugin?.type === 'pod') {
+          a.plugin.landed = true;
+        }
+
+        if (!lettersArmed && podBodies.length && podBodies.every((p) => p.plugin?.landed)) {
+          lettersArmed = true;
+        }
+
+        if (a.plugin?.type === 'letter' && b.plugin?.type === 'pod') {
+          dislodgeLetter(a, b);
+        } else if (b.plugin?.type === 'letter' && a.plugin?.type === 'pod') {
+          dislodgeLetter(b, a);
+        }
+      }
+    });
+
+    const maxLinearSpeed = 70;
+    const maxAngularSpeed = 0.45;
     Events.on(engine, 'beforeUpdate', () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
 
-      for (const body of podBodies) {
-        if (!inWorld.has(body)) continue;
+      const dynamicBodies = [];
+      for (const body of podBodies) if (inWorld.has(body)) dynamicBodies.push(body);
+      for (const body of letterBodies) if (body.plugin?.dislodged) dynamicBodies.push(body);
 
+      for (const body of dynamicBodies) {
         const vx = body.velocity.x;
         const vy = body.velocity.y;
         const speed = Math.hypot(vx, vy);
@@ -184,6 +329,15 @@ export default function usePodsPhysics() {
       for (let i = 0; i < podEls.length; i++) {
         const el = podEls[i];
         const body = podBodies[i];
+        el.style.left = `${body.position.x}px`;
+        el.style.top = `${body.position.y}px`;
+        el.style.transform = `translate(-50%, -50%) rotate(${body.angle}rad)`;
+      }
+
+      for (let i = 0; i < physLetterEls.length; i++) {
+        const el = physLetterEls[i];
+        const body = letterBodies[i];
+        if (!el || !body) continue;
         el.style.left = `${body.position.x}px`;
         el.style.top = `${body.position.y}px`;
         el.style.transform = `translate(-50%, -50%) rotate(${body.angle}rad)`;
@@ -226,12 +380,36 @@ export default function usePodsPhysics() {
 
         Body.setPosition(boundaries.rightWall, next.rightWall.position);
         Body.setVertices(boundaries.rightWall, next.rightWall.vertices);
+
+        if (letterBodies.length && ghostLetterEls.length === letterBodies.length) {
+          for (let i = 0; i < letterBodies.length; i++) {
+            const body = letterBodies[i];
+            if (body.plugin?.dislodged) continue;
+            const rect = ghostLetterEls[i].getBoundingClientRect();
+            const w = Math.max(6, rect.width);
+            const h = Math.max(10, rect.height);
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+
+            const tmp = Bodies.rectangle(x, y, w, h, { isStatic: true, render: { visible: false } });
+            Body.setPosition(body, { x, y });
+            Body.setAngle(body, 0);
+            Body.setVelocity(body, { x: 0, y: 0 });
+            Body.setAngularVelocity(body, 0);
+            Body.setVertices(body, tmp.vertices);
+
+            const anchor = letterAnchors[i];
+            if (anchor) anchor.pointA = { x, y };
+          }
+        }
       }, 150);
     };
 
     window.addEventListener('resize', onResize);
 
     return () => {
+      cancelledRef.current = true;
+      document.documentElement.classList.remove('title-ready');
       window.removeEventListener('resize', onResize);
       if (resizeTimer) window.clearTimeout(resizeTimer);
       for (const t of timeouts) window.clearTimeout(t);
