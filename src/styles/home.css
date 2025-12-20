@@ -163,6 +163,10 @@ body {
     color 200ms ease;
 }
 
+.elegant-button--blue {
+  background-color: #1c6cff;
+}
+
 .elegant-button.visible {
   opacity: 1;
   transform: translateY(0);

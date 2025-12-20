@@ -99,6 +99,12 @@ export default function HomePage() {
           >
             <em>One Thing</em>
           </a>
+          <a
+            className={`elegant-button elegant-button--blue ${showButton ? 'visible' : ''}`}
+            href="https://sumanyuj.com/accountability"
+          >
+            <em>Accountability</em>
+          </a>
         </div>
       </main>
 
