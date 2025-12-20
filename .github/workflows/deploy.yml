@@ -78,6 +78,7 @@ jobs:
             --exclude "cgi-bin/" \
             --exclude "ssl-manager.php" \
             --exclude "one-thing/" \
+            --exclude "accountability/" \
             -e "ssh" \
             ./dist/ \
             "cpanel:/home/${{ secrets.CPANEL_USER }}/public_html/"
