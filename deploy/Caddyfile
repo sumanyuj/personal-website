@@ -1,0 +1,70 @@
+# /etc/caddy/Caddyfile
+#
+# Caddy obtains and renews Let's Encrypt certificates automatically; there is
+# no certbot cron job and no cPanel SSL manager to babysit. Reload after edits:
+#   sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+
+sumanyuj.com, www.sumanyuj.com {
+	# Canonicalise on the apex so the site has one address.
+	@www host www.sumanyuj.com
+	redir @www https://sumanyuj.com{uri} permanent
+
+	encode zstd gzip
+
+	header {
+		# HSTS. Start with a short max-age; raise it once you're confident.
+		Strict-Transport-Security "max-age=86400; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	# --- Sibling apps -------------------------------------------------------
+	# These used to be directories inside public_html, protected by a growing
+	# list of rsync --exclude rules. Now they live outside the site root, so a
+	# bad deploy of the homepage cannot touch them.
+	#
+	# Static app: point at its own directory.
+	handle_path /one-thing* {
+		root * /var/www/one-thing
+		try_files {path} {path}/ /index.html
+		file_server
+	}
+
+	handle_path /accountability* {
+		root * /var/www/accountability
+		try_files {path} {path}/ /index.html
+		file_server
+	}
+
+	# If either app is a service instead of static files, replace the block
+	# above with a proxy, e.g.:
+	#   handle_path /accountability* {
+	#       reverse_proxy 127.0.0.1:3000
+	#   }
+
+	# --- Main site ----------------------------------------------------------
+	handle {
+		root * /var/www/sumanyuj.com/current
+
+		# Vite fingerprints everything under /assets, so it can be cached hard.
+		@immutable path /assets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+		# The HTML entry point must never be cached, or clients keep loading
+		# the previous release's asset URLs after a deploy.
+		@html path / /index.html
+		header @html Cache-Control "no-cache"
+
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/sumanyuj.com.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

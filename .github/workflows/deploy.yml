@@ -1,16 +1,23 @@
-name: Deploy to Namecheap (cPanel) via rsync
+name: Deploy to Hetzner
 
 on:
   push:
     branches: ["main"]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-production
   cancel-in-progress: true
 
+env:
+  # Where the site lives on the server. Caddy serves $SITE_ROOT/current.
+  SITE_ROOT: /var/www/sumanyuj.com
+  KEEP_RELEASES: 5
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,76 +36,76 @@ jobs:
 
       - name: Setup SSH
         shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
 
-          cat > ~/.ssh/id_deploy <<'KEY'
-          ${{ secrets.CPANEL_SSH_KEY }}
-          KEY
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
 
+          # Pin the host key so a hijacked DNS record can't MITM the deploy.
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
           cat > ~/.ssh/config <<EOF
-          Host cpanel
-            HostName ${{ secrets.CPANEL_HOST }}
-            User ${{ secrets.CPANEL_USER }}
-            Port ${{ secrets.CPANEL_PORT }}
+          Host hetzner
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            Port ${DEPLOY_PORT:-22}
             IdentityFile ~/.ssh/id_deploy
             IdentitiesOnly yes
-            StrictHostKeyChecking accept-new
+            StrictHostKeyChecking yes
             UserKnownHostsFile ~/.ssh/known_hosts
+            ServerAliveInterval 15
           EOF
           chmod 600 ~/.ssh/config
 
+      - name: Verify SSH login
+        run: ssh -o BatchMode=yes hetzner 'echo "SSH OK on $(hostname -f) as $(whoami)"'
 
-      - name: Check SSH port is reachable
+      - name: Upload release
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.CPANEL_HOST }}"
-          PORT="${{ secrets.CPANEL_PORT }}"
-          echo "Checking TCP $PORT on $HOST..."
-          timeout 8 bash -c "cat < /dev/null > /dev/tcp/$HOST/$PORT" \
-            && echo "Port $PORT reachable" \
-            || (echo "Port $PORT NOT reachable" && exit 1)
+          RELEASE="${SITE_ROOT}/releases/${GITHUB_SHA}"
+          ssh hetzner "mkdir -p '${SITE_ROOT}/releases'"
 
-      - name: Test SSH login
+          # --link-dest hardlinks unchanged files against the live release, so
+          # each deploy costs only the bytes that actually changed.
+          rsync -az --delete --delete-delay \
+            --link-dest="${SITE_ROOT}/current/" \
+            ./dist/ "hetzner:${RELEASE}/"
+
+      - name: Activate release
         shell: bash
         run: |
           set -euo pipefail
-          ssh -o BatchMode=yes cpanel 'echo "SSH OK on $(hostname -f) as $(whoami)"'
+          RELEASE="${SITE_ROOT}/releases/${GITHUB_SHA}"
+          ssh hetzner bash -euo pipefail <<EOF
+            test -f '${RELEASE}/index.html' || { echo "index.html missing in release"; exit 1; }
 
-      - name: Deploy (mirror) to public_html
+            # ln -T + mv -T swaps the symlink atomically: no request ever sees
+            # a half-written document root.
+            ln -sfnT '${RELEASE}' '${SITE_ROOT}/current.tmp'
+            mv -T '${SITE_ROOT}/current.tmp' '${SITE_ROOT}/current'
+
+            cd '${SITE_ROOT}/releases'
+            live=\$(basename "\$(readlink -f '${SITE_ROOT}/current')")
+            ls -1dt */ | sed 's#/\$##' | tail -n +$((KEEP_RELEASES + 1)) \\
+              | grep -vxF "\$live" | xargs -r rm -rf --
+            echo "Live: \$live"
+          EOF
+
+      - name: Smoke test
         shell: bash
         run: |
           set -euo pipefail
-          rsync -avz --delete \
-            --exclude "blog/" \
-            --exclude "cgi-bin/" \
-            --exclude "ssl-manager.php" \
-            --exclude "one-thing/" \
-            --exclude "accountability/" \
-            -e "ssh" \
-            ./dist/ \
-            "cpanel:/home/${{ secrets.CPANEL_USER }}/public_html/"
-
-      - name: Deploy cgi-bin (mirror)
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -d "./cgi-bin" ]; then
-            rsync -avz --delete -e "ssh" \
-              ./cgi-bin/ \
-              "cpanel:/home/${{ secrets.CPANEL_USER }}/public_html/cgi-bin/"
-          fi
-
-      - name: Deploy ssl-manager.php
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f "./ssl-manager.php" ]; then
-            rsync -avz -e "ssh" \
-              ./ssl-manager.php \
-              "cpanel:/home/${{ secrets.CPANEL_USER }}/public_html/ssl-manager.php"
-          fi
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 2 https://sumanyuj.com/)
+          echo "GET https://sumanyuj.com/ -> $code"
+          [ "$code" = "200" ]
