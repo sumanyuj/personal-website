@@ -1,32 +1,11 @@
+/* Only the regular face is referenced. The bold and italic cuts, and the
+   182KB Adelle Mono used solely by the removed buttons, are no longer
+   requested — the files remain in the repo but never reach the bundle. */
 @font-face {
-  font-family: "Golden Decades";
-  src: url("../../fonts/Fontspring-DEMO-goldendecades-regular.otf") format("opentype");
+  font-family: 'Golden Decades';
+  src: url('../../fonts/Fontspring-DEMO-goldendecades-regular.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Golden Decades";
-  src: url("../../fonts/Fontspring-DEMO-goldendecades-smbold.otf") format("opentype");
-  font-weight: bold;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Golden Decades";
-  src: url("../../fonts/Fontspring-DEMO-goldendecades-italic.otf") format("opentype");
-  font-weight: normal;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Adello";
-  src: url("../../Adelle Mono Italic.ttf") format("truetype");
-  font-weight: normal;
-  font-style: italic;
   font-display: swap;
 }
 
@@ -34,7 +13,7 @@ html,
 body {
   margin: 0;
   padding: 0;
-  font-family: "Golden Decades", sans-serif;
+  font-family: 'Golden Decades', sans-serif;
 }
 
 body {
@@ -42,6 +21,17 @@ body {
   overflow: hidden;
   touch-action: none;
   overscroll-behavior: none;
+}
+
+/* Sits under everything and receives the pointer events that drive the
+   simulation. It replaces a canvas that repainted every frame to draw nothing. */
+.pointer-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .hero {
@@ -55,6 +45,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 25px;
+  /* Lets drags reach .pointer-layer; links opt back in below. */
   pointer-events: none;
 }
 
@@ -62,7 +53,19 @@ body {
   pointer-events: auto;
 }
 
-.title-ready .epic--ghost {
+.epic {
+  margin: 0;
+  text-align: center;
+  font-family: 'Golden Decades', sans-serif;
+  font-size: calc(75px + 2vw);
+  line-height: 0.95;
+  text-shadow: 2px 4px 4px rgba(0, 0, 0, 0.15);
+  color: rgb(255, 255, 255);
+}
+
+/* Once the physics letters take over, the real heading goes transparent but
+   keeps its boxes — they stay the reference for re-anchoring on resize. */
+.hero--letters-ready .epic--ghost {
   color: transparent;
   text-shadow: none;
 }
@@ -79,26 +82,40 @@ body {
   visibility: hidden;
 }
 
-.title-letter {
+.hero--letters-ready .title-physics {
+  visibility: visible;
+}
+
+/* Positioned entirely through `transform`, so each frame stays on the
+   compositor instead of invalidating layout via left/top. */
+.title-letter,
+.pod {
   position: fixed;
   left: 0;
   top: 0;
   transform: translate(-50%, -50%);
   transform-origin: center center;
-  color: #ffffff;
-  text-shadow: 2px 4px 4px rgba(0, 0, 0, 0.15);
-  user-select: none;
   will-change: transform;
+  user-select: none;
 }
 
-.epic {
-  margin: 0;
-  text-align: center;
-  font-family: "Golden Decades", sans-serif;
-  font-size: calc(75px + 2vw);
-  line-height: 0.95;
+.title-letter {
+  color: #ffffff;
   text-shadow: 2px 4px 4px rgba(0, 0, 0, 0.15);
-  color: rgb(255, 255, 255);
+}
+
+.pod {
+  width: 120px;
+  height: 50px;
+  border: 1px solid #ff2d34;
+  border-radius: 5px;
+  line-height: 50px;
+  text-align: center;
+  background-color: lightgray;
+  z-index: 1;
+  pointer-events: none;
+  /* Revealed by the simulation as each pod is dropped in. */
+  visibility: hidden;
 }
 
 .social {
@@ -110,9 +127,14 @@ body {
 }
 
 .social a {
+  display: inline-flex;
   text-decoration: none;
   color: #ffffff;
-  font-size: 70px;
+}
+
+.social__icon {
+  width: 70px;
+  height: 70px;
 }
 
 .social a:focus-visible {
@@ -121,80 +143,12 @@ body {
   border-radius: 10px;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  justify-content: center;
-  align-items: center;
-  margin-top: 6px;
-}
-
-.pod {
-  position: absolute;
-  width: 120px;
-  height: 50px;
-  border: 1px solid #ff2d34;
-  border-radius: 5px;
-  line-height: 50px;
-  text-align: center;
-  background-color: lightgray;
-  transform-origin: center center;
-  z-index: 1;
-  user-select: none;
-  pointer-events: none;
-}
-
-.elegant-button {
-  text-decoration: none;
-  background-color: #ff2d34;
-  border: 2px solid white;
-  color: #ffffff;
-  padding: 15px 32px;
-  text-align: center;
-  display: inline-block;
-  font-size: 30px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-family: "Adello";
-  opacity: 0;
-  transform: translateY(18px);
-  transition: opacity 650ms ease, transform 650ms ease, background-color 200ms ease,
-    color 200ms ease;
-}
-
-.elegant-button--blue {
-  background-color: #1c6cff;
-}
-
-.elegant-button.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.elegant-button:hover {
-  background-color: white;
-  color: black;
-}
-
-.elegant-button:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 6px;
-}
-
 @media (max-width: 520px) {
   .social {
     margin-top: -10px;
   }
-  .social a {
-    font-size: 58px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .elegant-button {
-    transition: none;
-    opacity: 1;
-    transform: none;
+  .social__icon {
+    width: 58px;
+    height: 58px;
   }
 }
