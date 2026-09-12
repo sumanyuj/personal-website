@@ -109,6 +109,63 @@ body {
   flex: 1;
 }
 
+.chrome__search {
+  width: 128px;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+  font: 400 12px/1.2 var(--ui);
+}
+
+.chrome__search::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.chrome__search:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 1px;
+}
+
+/* Below this the centred title starts colliding with the controls either side
+   of it, so it stops being centred and simply takes its place in the row. */
+@media (max-width: 860px) {
+  .chrome__title {
+    position: static;
+    transform: none;
+    text-align: left;
+  }
+
+  .chrome__spacer {
+    flex: 1;
+  }
+
+  .chrome__search {
+    width: clamp(70px, 22vw, 128px);
+  }
+}
+
+@media (max-width: 620px) {
+  .chrome {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .cbtn__label {
+    display: none;
+  }
+
+  .chrome__title span {
+    display: none;
+  }
+
+  .chrome__search {
+    display: none;
+  }
+}
+
 /* A recessed, rounded button in the style of the iOS 5 toolbar. */
 .cbtn {
   display: inline-flex;

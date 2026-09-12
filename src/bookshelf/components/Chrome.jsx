@@ -25,7 +25,7 @@ export const ChromeToolbar = memo(function ChromeToolbar({
     <header className="chrome">
       <button type="button" className="cbtn" onClick={onCollections}>
         <CollectionsIcon />
-        Collections
+        <span className="cbtn__label">Collections</span>
       </button>
 
       <div className="chrome__title">
@@ -44,15 +44,6 @@ export const ChromeToolbar = memo(function ChromeToolbar({
         value={search}
         onChange={(event) => onSearch(event.target.value)}
         aria-label="Filter the library"
-        style={{
-          width: 128,
-          padding: '5px 10px',
-          border: '1px solid rgba(0,0,0,0.45)',
-          borderRadius: 12,
-          background: 'rgba(0,0,0,0.22)',
-          color: '#fff',
-          font: '400 12px/1.2 var(--ui)'
-        }}
       />
 
       <span className="cbtn__group">
