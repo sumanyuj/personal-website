@@ -50,9 +50,19 @@ function open() {
       if (!db.objectStoreNames.contains(STORE.textures)) db.createObjectStore(STORE.textures);
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      // Without this, a tab left open on an older schema blocks the upgrade for
+      // every other tab indefinitely. Closing here lets the newer tab proceed;
+      // this tab's own queries then fail and a reload picks up the new schema.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
     request.onerror = () => reject(request.error);
-    // A second tab running a newer version would otherwise block forever.
+    // Only reachable if another tab ignored versionchange.
     request.onblocked = () => reject(new Error('IndexedDB upgrade blocked by another tab'));
   });
 
