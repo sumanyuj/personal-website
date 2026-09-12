@@ -62,7 +62,6 @@ echo "==> Site directories"
 # caddy reads, deploy writes. The deploy user owns the tree; caddy only needs
 # traversal + read, so it is never able to modify what it serves.
 install -d -o "$DEPLOY_USER" -g caddy -m 755 "$SITE_ROOT" "${SITE_ROOT}/releases"
-install -d -o caddy -g caddy -m 755 /var/log/caddy
 
 # A placeholder so Caddy can start (and get certs) before the first deploy.
 if [[ ! -e "${SITE_ROOT}/current" ]]; then

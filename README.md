@@ -35,7 +35,7 @@ homepage still links to them, and those links 404 until they are migrated.
 
 ### First-time server setup
 
-Assumes a fresh Ubuntu 24.04 Hetzner VPS.
+Assumes a fresh Ubuntu Hetzner VPS (tested on 26.04 LTS).
 
 1. Create the deploy keypair **on your laptop**:
 
