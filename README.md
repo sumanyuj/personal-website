@@ -27,10 +27,11 @@ and a rollback is one command.
 │   ├── 4f2a1c…/          last 5 releases are kept
 │   └── 9b7e3d…/
 └── current -> releases/9b7e3d…   <- Caddy's document root
-
-/var/www/one-thing/        sibling apps, never touched by this deploy
-/var/www/accountability/
 ```
+
+The `one-thing` and `accountability` apps are not hosted here yet; the
+homepage still links to them, and those links 404 until they are migrated.
+`deploy/Caddyfile` has commented-out blocks showing where to add them.
 
 ### First-time server setup
 
