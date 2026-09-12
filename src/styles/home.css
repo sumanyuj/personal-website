@@ -95,7 +95,7 @@ body {
 /* Positioned entirely through `transform`, so each frame stays on the
    compositor instead of invalidating layout via left/top. */
 .title-letter,
-.pod {
+.minibook {
   position: fixed;
   left: 0;
   top: 0;
@@ -110,18 +110,166 @@ body {
   text-shadow: 2px 4px 4px rgba(0, 0, 0, 0.15);
 }
 
-.pod {
-  width: 120px;
-  height: 50px;
-  border: 1px solid #ff2d34;
-  border-radius: 5px;
-  line-height: 50px;
-  text-align: center;
-  background-color: lightgray;
+.minibook {
   z-index: 1;
   pointer-events: none;
-  /* Revealed by the simulation as each pod is dropped in. */
+  /* Revealed by the simulation as each book is dropped in. */
   visibility: hidden;
+}
+
+/* A cover, a spine band and a page block — the same three cues the bookshelf app
+   uses to turn a rectangle into something that reads as a book. */
+.minibook__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 1px 3px 3px 1px;
+  background: linear-gradient(to bottom right, var(--cover), rgba(0, 0, 0, 0.32) 220%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 2px 5px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.minibook__spine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 22%;
+  background:
+    linear-gradient(to right, rgba(255, 255, 255, 0.22) 0 1px, transparent 1px) right / 1px 100%
+      no-repeat,
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.55),
+      rgba(0, 0, 0, 0.3) 30%,
+      rgba(0, 0, 0, 0.12) 75%,
+      rgba(0, 0, 0, 0.3)
+    );
+}
+
+.minibook__pages {
+  position: absolute;
+  inset: 2px 0 2px auto;
+  width: 5%;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.25), #f2f0ea 45%, #cfccc3);
+}
+
+/* ------------------------------------------------------------- bookshelf --- */
+
+/* Revealed only once every letter has been knocked off the heading. */
+.shelf-target {
+  position: fixed;
+  right: clamp(16px, 5vw, 64px);
+  bottom: clamp(16px, 6vh, 72px);
+  z-index: 4;
+  opacity: 0;
+  transform: translateY(22px) scale(0.94);
+  pointer-events: none;
+  transition:
+    opacity 600ms ease,
+    transform 600ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.shelf-target--visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.shelf-target__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: #fff;
+}
+
+.shelf-target__case {
+  display: block;
+  padding: 10px 10px 0;
+  border-radius: 4px;
+  background: linear-gradient(to bottom, #8a6437, #6d4d29);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 8px 22px rgba(0, 0, 0, 0.55);
+}
+
+.shelf-target__slots {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+/* Each slot is cut to the dimensions of the loose books, so a dragged book and
+   its destination are unmistakably the same object. */
+.shelf-target__slot {
+  position: relative;
+  display: block;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.38);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+  transition:
+    box-shadow 140ms ease,
+    background-color 140ms ease;
+}
+
+.shelf-target__slot--armed {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.shelf-target__book {
+  position: absolute;
+  inset: 0;
+  animation: shelf-drop 320ms cubic-bezier(0.2, 0.9, 0.3, 1.25);
+}
+
+@keyframes shelf-drop {
+  from {
+    transform: translateY(-14px) rotate(-6deg);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.shelf-target__board {
+  display: block;
+  height: 7px;
+  margin: 0 -10px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(to bottom, #c39a5f, #7a5730 60%, #4f3720);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.shelf-target__caption {
+  font-family: 'Golden Decades', serif;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+.shelf-target__button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shelf-target {
+    transition: none;
+  }
+  .shelf-target__book {
+    animation: none;
+  }
 }
 
 .social {

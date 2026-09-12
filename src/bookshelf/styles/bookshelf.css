@@ -1,0 +1,910 @@
+/* The case, the chrome, and the paper. Everything skeuomorphic lives here so the
+   components can stay about layout. */
+
+:root {
+  /* Behind everything, in case a texture hasn't been generated yet. */
+  --case-fallback: #b8915f;
+  /* The dark recess the books stand in front of. */
+  --recess: #33210f;
+
+  /* Toolbar graphite, top and bottom of its gloss gradient. */
+  --chrome-top: #707378;
+  --chrome-bottom: #3d4045;
+  --chrome-hairline: #1a1a1c;
+
+  /* Popovers and sheets: the linen iOS 5 used behind its modal surfaces. */
+  --linen: #dedcd4;
+  --linen-dark: #c7c5bd;
+
+  /* Paper for detail and list surfaces. */
+  --paper: #faf8f3;
+  --ink: #211f1c;
+  --ink-soft: #6b6661;
+  --rule: #ccc7bf;
+
+  /* The blue iOS 5 used for checkmarks and selected state. */
+  --accent: #4a70b5;
+
+  --board-thickness: 16px;
+
+  /* Baskerville ships on Apple platforms; the stack degrades to whatever serif
+     the reader has rather than pulling a webfont for chrome text. */
+  --serif: Baskerville, 'Baskerville Old Face', 'Hoefler Text', Garamond, 'Times New Roman', serif;
+  --ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--recess);
+  color: var(--ink);
+  font-family: var(--ui);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--recess);
+}
+
+/* ---------------------------------------------------------------- chrome --- */
+
+/* The glossy graphite bar iOS 5 used for navigation. */
+.chrome {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 10px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.26),
+      rgba(255, 255, 255, 0.06) 50%,
+      transparent 50%
+    ),
+    linear-gradient(to bottom, var(--chrome-top), var(--chrome-bottom));
+  border-bottom: 1px solid var(--chrome-hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  z-index: 5;
+}
+
+.chrome__title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.chrome__title strong {
+  display: block;
+  font: 600 15px/1.2 var(--ui);
+}
+
+.chrome__title span {
+  display: block;
+  font: 400 11px/1.3 var(--ui);
+  opacity: 0.72;
+}
+
+.chrome__spacer {
+  flex: 1;
+}
+
+/* A recessed, rounded button in the style of the iOS 5 toolbar. */
+.cbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font: 600 13px/1.2 var(--ui);
+  color: #fff;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.cbtn:hover {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12));
+}
+
+.cbtn:active,
+.cbtn[aria-pressed='true'] {
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.24));
+}
+
+.cbtn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.cbtn--icon {
+  padding: 5px 9px;
+}
+
+.cbtn__group {
+  display: inline-flex;
+}
+
+.cbtn__group .cbtn {
+  border-radius: 0;
+  margin-left: -1px;
+}
+
+.cbtn__group .cbtn:first-child {
+  border-radius: 5px 0 0 5px;
+  margin-left: 0;
+}
+
+.cbtn__group .cbtn:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+/* ----------------------------------------------------------------- case --- */
+
+.case {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--case-fallback);
+}
+
+/* The back panel of the case: vertical grain, darkened and vignetted so books in
+   front of it read as being lit from the front. */
+.case__panel {
+  position: absolute;
+  inset: 0;
+  background-color: var(--case-fallback);
+  background-repeat: repeat;
+  background-size: 190px 190px;
+}
+
+.case__panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.22),
+      transparent 22%,
+      transparent 78%,
+      rgba(0, 0, 0, 0.22)
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.46), rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.44));
+}
+
+.case__pages {
+  position: relative;
+  height: 100%;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.case__pages::-webkit-scrollbar {
+  display: none;
+}
+
+.case__page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+}
+
+.case__scroll {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.case__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ----------------------------------------------------------------- shelf --- */
+
+.shelf-row {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+
+.shelf-row__books {
+  display: flex;
+  align-items: flex-end;
+}
+
+.shelf-row__slot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: none;
+}
+
+/* A shelf board seen slightly from below: a lit top surface, a rounded front
+   edge, and a shadow cast back onto the panel behind it. */
+.board {
+  position: relative;
+  flex: none;
+  height: var(--board-thickness);
+  background-color: var(--case-fallback);
+  background-repeat: repeat;
+  background-size: 430px 430px;
+  border-radius: 1px 1px 3px 3px;
+  box-shadow: 0 4px 5px rgba(0, 0, 0, 0.5);
+}
+
+.board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.42),
+    rgba(255, 255, 255, 0.1) 16%,
+    transparent 42%,
+    rgba(0, 0, 0, 0.3) 86%,
+    rgba(0, 0, 0, 0.52)
+  );
+}
+
+/* The lit lip where the top surface meets the front edge. */
+.board::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ------------------------------------------------------------------ book --- */
+
+.book {
+  position: relative;
+  flex: none;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 0.18s ease;
+  will-change: transform;
+}
+
+.book__stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* Square at the spine, rounded at the fore edge. A real book is square along
+     its spine, and that asymmetry is most of what makes it read as a book. */
+  border-radius: 1px var(--fore-radius, 4px) var(--fore-radius, 4px) 1px;
+  box-shadow:
+    2px 3px 5px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.32);
+  background: #6b5946;
+}
+
+.book__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Contact shadow, cast on the board the book stands on. */
+.book__contact {
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  transform: translateX(-50%);
+  width: 130%;
+  height: 7%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), transparent 70%);
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+/* The binding, the hinge and the page block — everything that turns a flat cover
+   image into an object with a front, a spine and a fore edge. Modelled on how
+   Apple Books draws a cover: a straight, narrow band down the left with a crisp
+   crease where it meets the printed face, not a soft gradient smeared across the
+   artwork. */
+.book__binding {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.16) 0 0.75px, transparent 0.75px) top / 100%
+      100% no-repeat,
+    linear-gradient(to top, rgba(0, 0, 0, 0.28) 0 0.75px, transparent 0.75px) bottom / 100% 100%
+      no-repeat,
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.11), transparent 50%, rgba(0, 0, 0, 0.12)),
+    linear-gradient(
+      to right,
+      transparent,
+      rgba(255, 255, 255, 0.07) 22%,
+      transparent 55%,
+      rgba(0, 0, 0, 0.1)
+    );
+}
+
+/* The binding band, darkest at the spine and lifting toward the hinge, plus the
+   hinge crease itself: a dark line with a bright edge just inside it, which is
+   what actually sells the fold. Kept to hairlines so it stays straight. */
+.book__binding::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--band) + 1.5px);
+  background:
+    linear-gradient(to right, rgba(255, 255, 255, 0.22) 0 0.75px, transparent 0.75px) right / 0.75px
+      100% no-repeat,
+    linear-gradient(to right, rgba(0, 0, 0, 0.38) 0 0.75px, transparent 0.75px) calc(100% - 0.75px)
+      0 / 0.75px 100% no-repeat,
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.58),
+      rgba(0, 0, 0, 0.34) 28%,
+      rgba(0, 0, 0, 0.14) 72%,
+      rgba(0, 0, 0, 0.22)
+    );
+}
+
+/* The page block along the fore edge, with a shadow where the cover overhangs it. */
+.book__binding::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: var(--pages);
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.22), #f5f5f5 30%, #c7c7c7 70%, #e0e0e0);
+}
+
+/* Stand-in for a book with no cover: a cloth board with the title stamped on it,
+   coloured deterministically so the same book always looks the same. */
+.book__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3%;
+  padding: 0 10%;
+  text-align: center;
+  font-family: var(--serif);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(to bottom right, hsl(var(--hue) 38% 52%), hsl(var(--hue) 44% 34%));
+}
+
+.book__placeholder-title {
+  font-size: var(--title-size);
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.book__placeholder-rule {
+  width: 34%;
+  height: 0.5px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.book__placeholder-author {
+  font-size: var(--author-size);
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.book--selected {
+  transform: scale(0.94);
+}
+
+.book__badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.book__badge--on {
+  background: var(--accent);
+}
+
+/* ------------------------------------------------------------ empty state --- */
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.empty h2 {
+  margin: 0;
+  font: 400 24px/1.2 var(--serif);
+  opacity: 0.92;
+}
+
+.empty p {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.65;
+}
+
+.empty svg {
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------ bottom bar --- */
+
+.bottombar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  padding: 7px 12px;
+  padding-bottom: max(7px, env(safe-area-inset-bottom));
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.2),
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 50%
+    ),
+    linear-gradient(to bottom, var(--chrome-top), var(--chrome-bottom));
+  border-top: 1px solid var(--chrome-hairline);
+  color: #fff;
+  z-index: 5;
+}
+
+.bottombar__zoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bottombar input[type='range'] {
+  width: 120px;
+  accent-color: #fff;
+}
+
+.pagedots {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 7px;
+}
+
+.pagedots button {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.32);
+  cursor: pointer;
+}
+
+.pagedots button[aria-current='true'] {
+  background: #fff;
+}
+
+/* --------------------------------------------------------------- overlay --- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  max-height: min(760px, 100%);
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+.sheet--linen {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.5) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 3px), var(--linen);
+}
+
+.sheet__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 10px;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.26),
+      rgba(255, 255, 255, 0.06) 50%,
+      transparent 50%
+    ),
+    linear-gradient(to bottom, var(--chrome-top), var(--chrome-bottom));
+  border-bottom: 1px solid var(--chrome-hairline);
+  color: #fff;
+}
+
+.sheet__bar h2 {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font: 600 15px/1.2 var(--ui);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* ---------------------------------------------------------------- fields --- */
+
+.field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.field > span {
+  display: block;
+  margin-bottom: 4px;
+  font: 600 11px/1.2 var(--ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 7px 9px;
+  font: 400 14px/1.4 var(--ui);
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.field textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.searchfield {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.searchfield input {
+  flex: 1;
+  padding: 9px 12px;
+  font: 400 15px/1.2 var(--ui);
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.searchfield input:focus {
+  outline: 2px solid var(--accent);
+}
+
+/* --------------------------------------------------------------- results --- */
+
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.results li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.result {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 6px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.result:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.result:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.result__cover {
+  flex: none;
+  width: 44px;
+  height: 66px;
+  object-fit: cover;
+  border-radius: 1px 3px 3px 1px;
+  background: var(--linen-dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.result__text {
+  min-width: 0;
+  flex: 1;
+  /* The children are spans (a button may not contain block-level elements), so
+     they are laid out explicitly rather than relying on block flow. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.result__title {
+  font: 600 14px/1.3 var(--ui);
+}
+
+.result__meta {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.result__badge {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.07);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.hint {
+  margin: 16px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------ list --- */
+
+.listview {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--paper);
+}
+
+.listview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.listview th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  text-align: left;
+  font: 600 11px/1.2 var(--ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--linen);
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.listview td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+
+.listview tbody tr {
+  cursor: pointer;
+}
+
+.listview tbody tr:hover {
+  background: rgba(0, 0, 0, 0.035);
+}
+
+.listview__cover {
+  width: 28px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 1px 2px 2px 1px;
+  background: var(--linen-dark);
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------- misc --- */
+
+.stars {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.stars button {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 4px 10px;
+  font: 500 12px/1.3 var(--ui);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 60px;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 8px 16px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.detail__head {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.detail__cover {
+  flex: none;
+  width: 120px;
+  border-radius: 1px 5px 5px 1px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  background: var(--linen-dark);
+}
+
+.detail__title {
+  margin: 0 0 4px;
+  font: 400 22px/1.2 var(--serif);
+}
+
+.detail__author {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+}
+
+.row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.danger {
+  color: #a3221f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book {
+    transition: none;
+  }
+}

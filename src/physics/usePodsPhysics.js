@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const CATEGORY = { POD: 0x0001, LETTER: 0x0002, WALL: 0x0004 };
 const COLLIDES_WITH_EVERYTHING = CATEGORY.POD | CATEGORY.LETTER | CATEGORY.WALL;
@@ -96,7 +96,18 @@ function createTransformWriter(elements) {
  */
 function startSimulation(
   Matter,
-  { pointerElement, podElements, ghostElements, letterElements, reduceMotion, onLettersReady }
+  {
+    pointerElement,
+    podElements,
+    ghostElements,
+    letterElements,
+    reduceMotion,
+    onLettersReady,
+    onLettersCleared,
+    getSlots,
+    onArmSlot,
+    onShelve
+  }
 ) {
   const { Bodies, Body, Composite, Constraint, Engine, Events, Mouse, MouseConstraint, Runner } =
     Matter;
@@ -230,9 +241,18 @@ function startSimulation(
   });
   Composite.add(world, mouseConstraint);
 
+  let dislodgedCount = 0;
+  let cleared = false;
+
   const dislodgeLetter = (letterBody, impactingBody) => {
     if (!lettersArmed || letterBody.plugin.dislodged) return;
     letterBody.plugin.dislodged = true;
+    dislodgedCount += 1;
+    // The whole heading being knocked apart is what reveals the bookshelf.
+    if (!cleared && letterBodies.length > 0 && dislodgedCount === letterBodies.length) {
+      cleared = true;
+      onLettersCleared?.();
+    }
 
     const anchor = letterAnchors[letterBody.plugin.index];
     if (anchor) {
@@ -324,6 +344,62 @@ function startSimulation(
     }
   };
 
+  // --- Shelving ------------------------------------------------------------
+  // The second way into the app: drag the books into the shelf. Slot rectangles
+  // come from the DOM each time rather than being cached, because the shelf is
+  // positioned with viewport units and moves when the window resizes.
+  const shelved = new Set();
+
+  const slotUnder = (body) => {
+    const slots = getSlots?.() ?? [];
+    let best = null;
+    for (let slot = 0; slot < slots.length; slot++) {
+      const rect = slots[slot];
+      if (!rect || rect.taken) continue;
+      const dx = body.position.x - (rect.left + rect.width / 2);
+      const dy = body.position.y - (rect.top + rect.height / 2);
+      const distance = Math.hypot(dx, dy);
+      // Generous, and scaled to the slot, so a roughly-aimed drop still lands.
+      const reach = Math.max(rect.width, rect.height) * 1.15;
+      if (distance < reach && (!best || distance < best.distance)) best = { slot, distance };
+    }
+    return best;
+  };
+
+  let armedSlot = null;
+  const armSlot = (slot) => {
+    if (slot === armedSlot) return;
+    armedSlot = slot;
+    onArmSlot?.(slot);
+  };
+
+  const onDragMove = () => {
+    const body = mouseConstraint.body;
+    if (!body || body.plugin?.type !== 'pod') return armSlot(null);
+    armSlot(slotUnder(body)?.slot ?? null);
+  };
+
+  const onDragEnd = (event) => {
+    const body = event.body;
+    armSlot(null);
+    if (!body || body.plugin?.type !== 'pod' || shelved.has(body.plugin.index)) return;
+
+    const target = slotUnder(body);
+    if (!target) return;
+
+    // The book leaves the simulation entirely and is re-rendered inside the
+    // slot, so it cannot be knocked back out by a later collision.
+    shelved.add(body.plugin.index);
+    Composite.remove(world, body);
+    podsInWorld.delete(body);
+    const element = podElements[body.plugin.index];
+    if (element) element.style.visibility = 'hidden';
+    onShelve?.(body.plugin.index, target.slot);
+  };
+
+  Events.on(mouseConstraint, 'mousemove', onDragMove);
+  Events.on(mouseConstraint, 'enddrag', onDragEnd);
+
   Events.on(engine, 'collisionStart', onCollisionStart);
   Events.on(engine, 'beforeUpdate', onBeforeUpdate);
 
@@ -399,6 +475,8 @@ function startSimulation(
 
     Events.off(engine, 'collisionStart', onCollisionStart);
     Events.off(engine, 'beforeUpdate', onBeforeUpdate);
+    Events.off(mouseConstraint, 'mousemove', onDragMove);
+    Events.off(mouseConstraint, 'enddrag', onDragEnd);
     Mouse.clearSourceEvents(mouse);
     Runner.stop(runner);
     Composite.clear(world, false);
@@ -424,8 +502,31 @@ export default function usePodsPhysics({
   ghostLetterRef,
   physicsLetterRef,
   reduceMotion,
-  onLettersReady
+  onLettersReady,
+  onLettersCleared,
+  getSlots,
+  onArmSlot,
+  onShelve
 }) {
+  // The callbacks are read through a ref so their identity never reaches the
+  // effect's dependencies. getSlots in particular has to close over which slots
+  // are already filled, so it changes on every shelved book — and listing it as
+  // a dependency tore down and rebuilt the whole simulation mid-drag, dropping
+  // the books from the top again and re-anchoring the letters.
+  const handlers = useRef(null);
+  handlers.current = { onLettersReady, onLettersCleared, getSlots, onArmSlot, onShelve };
+
+  const stable = useRef(null);
+  if (!stable.current) {
+    stable.current = {
+      onLettersReady: () => handlers.current.onLettersReady?.(),
+      onLettersCleared: () => handlers.current.onLettersCleared?.(),
+      getSlots: () => handlers.current.getSlots?.() ?? [],
+      onArmSlot: (slot) => handlers.current.onArmSlot?.(slot),
+      onShelve: (book, slot) => handlers.current.onShelve?.(book, slot)
+    };
+  }
+
   useEffect(() => {
     const pointerElement = pointerRef.current;
     const podElements = podRef.current.filter(Boolean);
@@ -448,7 +549,7 @@ export default function usePodsPhysics({
         ghostElements,
         letterElements,
         reduceMotion,
-        onLettersReady
+        ...stable.current
       });
     });
 
@@ -456,5 +557,5 @@ export default function usePodsPhysics({
       cancelled = true;
       stop?.();
     };
-  }, [pointerRef, podRef, ghostLetterRef, physicsLetterRef, reduceMotion, onLettersReady]);
+  }, [pointerRef, podRef, ghostLetterRef, physicsLetterRef, reduceMotion]);
 }

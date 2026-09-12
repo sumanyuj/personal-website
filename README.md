@@ -12,6 +12,50 @@ on a Hetzner CX-series VPS in Germany.
 - Build production bundle: `npm run build` (outputs `dist/`)
 - Preview the production build: `npm run preview`
 
+## Bookshelf
+
+`/bookshelf` is a port of the Bookshelf app — a display case for the books you
+own, not a reader — from the SwiftUI version built for Mac, iPhone and iPad,
+which was itself a port of an Electron/React app for Ubuntu.
+
+It is a second Vite entry rather than a client-side route, so none of it is on
+the homepage's critical path. Everything runs in the browser: the library is an
+IndexedDB store (covers as blobs in their own object store, so listing the shelf
+never deserialises image data), and both metadata sources send permissive CORS
+headers, so there is no proxy to operate.
+
+| Path | What it is |
+|---|---|
+| `src/bookshelf/design/woodTexture.js` | The maple, generated procedurally |
+| `src/bookshelf/metadata/` | Apple Books + Open Library, merge and ranking |
+| `src/bookshelf/model/` | IndexedDB store, layout maths, cover handling |
+| `src/bookshelf/components/` | Shelf, chrome, sheets, list |
+
+Carried over from the native app:
+
+- **Wooden shelves**, generated rather than photographed, so they tile
+  seamlessly and carry no asset licence. Rendered once in a worker and cached in
+  IndexedDB — a 512² tile is a few hundred thousand fbm evaluations and would
+  visibly stall the main thread.
+- **Books as wide as their own cover art**, so the shelf isn't a uniform grid.
+- **Zoom**, by slider or trackpad pinch, remembered between visits.
+- **Add by search**, querying both sources at once. Apple answers first and is
+  shown immediately; the merged, edition-resolved result replaces it. The
+  ranking, the edition guards and the per-host circuit breaker are ported intact
+  — without them *Frank Herbert's Dune Saga Collection* outranks *Dune*, and a
+  French *Pale Fire* wins the merge.
+- **Collections**, editable details, and a sortable list view.
+
+Covers are re-encoded to WebP at display width before being stored. Apple serves
+~1400×2500, which is wonderful on screen and would run a 200-book library to
+80MB on disk.
+
+### Getting there from the homepage
+
+Knock every letter of the heading off with the books, and a bookshelf appears.
+Click it, or drag the three books into its slots — the third one shelved opens
+the app on its own.
+
 ## Deployment
 
 Pushing to `main` builds the site and ships it. Each deploy uploads to
