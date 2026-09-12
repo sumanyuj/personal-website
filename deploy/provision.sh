@@ -11,6 +11,10 @@
 
 set -euo pipefail
 
+# Without this, a mid-script failure scrolls past in a wall of apt output and
+# the run looks like it succeeded. It did not.
+trap 'echo; echo "!! provision.sh FAILED at line $LINENO (exit $?)" >&2; echo "   Fix the cause and re-run; this script is idempotent." >&2' ERR
+
 DEPLOY_PUBKEY="${1:-}"
 DEPLOY_USER=deploy
 DOMAIN=sumanyuj.com
@@ -86,14 +90,35 @@ sshd -t && systemctl reload ssh
 
 echo "==> Caddy config"
 if [[ -f /tmp/Caddyfile ]]; then
-	install -m 644 /tmp/Caddyfile /etc/caddy/Caddyfile
-	caddy validate --config /etc/caddy/Caddyfile
-	systemctl reload caddy || systemctl restart caddy
+	# Validate the candidate before it replaces a working config, so a bad edit
+	# cannot take the site down.
+	if caddy validate --config /tmp/Caddyfile --adapter caddyfile; then
+		install -m 644 /tmp/Caddyfile /etc/caddy/Caddyfile
+	else
+		echo "    !! /tmp/Caddyfile is invalid — keeping the existing config" >&2
+		exit 1
+	fi
 else
 	echo "    !! /tmp/Caddyfile not found — copy deploy/Caddyfile to the server"
-	echo "       and rerun, or install it by hand at /etc/caddy/Caddyfile"
+	echo "       and rerun, or install it by hand at /etc/caddy/Caddyfile" >&2
 fi
-systemctl enable --now caddy
+
+systemctl enable caddy
+systemctl restart caddy
+
+echo "==> Verifying Caddy is actually listening"
+for i in $(seq 1 10); do
+	if ss -ltn '( sport = :80 or sport = :443 )' | grep -q LISTEN; then
+		echo "    listening on 80/443"
+		break
+	fi
+	[[ $i -eq 10 ]] && {
+		echo "    !! Caddy is not listening. Recent log:" >&2
+		journalctl -u caddy -n 30 --no-pager >&2
+		exit 1
+	}
+	sleep 1
+done
 
 echo
 echo "==> Done. Values for your GitHub repository secrets:"
