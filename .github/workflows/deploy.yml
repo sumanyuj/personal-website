@@ -86,21 +86,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RELEASE="${SITE_ROOT}/releases/${GITHUB_SHA}"
-          ssh hetzner bash -euo pipefail <<EOF
-            test -f '${RELEASE}/index.html' || { echo "index.html missing in release"; exit 1; }
+          # Values go over as positional args with a quoted heredoc, so nothing
+          # is ambiguously expanded on the runner instead of the server.
+          ssh hetzner bash -euo pipefail -s -- \
+            "$SITE_ROOT" "$GITHUB_SHA" "$KEEP_RELEASES" <<'REMOTE'
+            site_root=$1; sha=$2; keep=$3
+            release="$site_root/releases/$sha"
+
+            test -f "$release/index.html" || {
+              echo "index.html missing in $release" >&2; exit 1; }
 
             # ln -T + mv -T swaps the symlink atomically: no request ever sees
             # a half-written document root.
-            ln -sfnT '${RELEASE}' '${SITE_ROOT}/current.tmp'
-            mv -T '${SITE_ROOT}/current.tmp' '${SITE_ROOT}/current'
+            ln -sfnT "$release" "$site_root/current.tmp"
+            mv -T "$site_root/current.tmp" "$site_root/current"
 
-            cd '${SITE_ROOT}/releases'
-            live=\$(basename "\$(readlink -f '${SITE_ROOT}/current')")
-            ls -1dt */ | sed 's#/\$##' | tail -n +$((KEEP_RELEASES + 1)) \\
-              | grep -vxF "\$live" | xargs -r rm -rf --
-            echo "Live: \$live"
-          EOF
+            live=$(basename "$(readlink -f "$site_root/current")")
+            echo "Live: $live"
+
+            # grep exits 1 when it selects nothing, which is the normal case
+            # below the keep threshold. Under pipefail that would fail the
+            # deploy after the site had already been switched over, so the
+            # empty result is handled rather than propagated.
+            cd "$site_root/releases"
+            stale=$(ls -1dt */ | sed 's#/$##' | tail -n "+$((keep + 1))" \
+              | grep -vxF "$live" || true)
+            if [ -n "$stale" ]; then
+              echo "Pruning:"; printf '  %s\n' $stale
+              printf '%s\n' "$stale" | xargs rm -rf --
+            fi
+          REMOTE
 
       - name: Smoke test
         shell: bash
