@@ -15,6 +15,7 @@ export default function useLibrary() {
   const [lists, setLists] = useState([]);
   const [coverURLs, setCoverURLs] = useState(() => new Map());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Object URLs must be revoked or the blobs stay resident for the life of the
   // document; this holds the ones currently handed out.
@@ -48,6 +49,10 @@ export default function useLibrary() {
         setBooks(loadedBooks);
         setLists(loadedLists);
         setCoverURLs(new Map(urlsRef.current));
+      } catch (cause) {
+        // Reporting this matters: an unreadable store rendered as an empty
+        // shelf, which invites adding books that then cannot be saved either.
+        if (!cancelled) setError(cause);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -205,6 +210,7 @@ export default function useLibrary() {
     lists,
     coverURLs,
     loading,
+    error,
     addBook,
     updateBook,
     removeBooks,

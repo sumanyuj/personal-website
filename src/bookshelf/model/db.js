@@ -27,10 +27,36 @@ export const STORE = {
 
 let dbPromise = null;
 
+/** How long to wait for a blocking tab to release its connection. */
+const BLOCKED_RETRY_MS = 400;
+const BLOCKED_ATTEMPTS = 5;
+
 function open() {
   if (dbPromise) return dbPromise;
+  dbPromise = openWithRetry(BLOCKED_ATTEMPTS);
+  return dbPromise;
+}
 
-  dbPromise = new Promise((resolve, reject) => {
+/**
+ * A tab still holding an older schema blocks the upgrade. The versionchange
+ * handler below asks such tabs to close, but that is asynchronous, so a blocked
+ * attempt is retried rather than failing the whole library — giving up left the
+ * app showing an empty shelf as though nothing had ever been added.
+ */
+async function openWithRetry(attempts) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await openOnce();
+    } catch (error) {
+      if (error?.name !== 'BlockedError' || attempt === attempts - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, BLOCKED_RETRY_MS));
+    }
+  }
+  throw new Error('unreachable');
+}
+
+function openOnce() {
+  return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = () => {
@@ -62,11 +88,12 @@ function open() {
       resolve(db);
     };
     request.onerror = () => reject(request.error);
-    // Only reachable if another tab ignored versionchange.
-    request.onblocked = () => reject(new Error('IndexedDB upgrade blocked by another tab'));
+    request.onblocked = () => {
+      const error = new Error('IndexedDB upgrade blocked by another tab');
+      error.name = 'BlockedError';
+      reject(error);
+    };
   });
-
-  return dbPromise;
 }
 
 function run(storeNames, mode, work) {

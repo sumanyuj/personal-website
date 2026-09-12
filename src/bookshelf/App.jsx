@@ -108,7 +108,17 @@ export default function App() {
       <div className="case" ref={caseRef}>
         <BackPanel />
 
-        {library.loading ? null : visible.length === 0 ? (
+        {library.loading ? null : library.error ? (
+          <div className="empty">
+            <BooksIcon />
+            <h2>The library could not be opened</h2>
+            <p>
+              Browser storage is unavailable. This happens in private browsing, or when another tab
+              is holding an older version of the database — closing other tabs and reloading usually
+              clears it.
+            </p>
+          </div>
+        ) : visible.length === 0 ? (
           <div className="empty">
             <BooksIcon />
             <h2>{books.length === 0 ? 'No books yet' : 'Nothing matches'}</h2>
