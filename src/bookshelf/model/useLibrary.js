@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as db from './db.js';
 import { makeBook, makeList, visibleBooks } from './book.js';
-import { saveCover } from './covers.js';
+import { requestPersistence, saveCover } from './covers.js';
 
 /**
  * The library and everything that mutates it.
@@ -26,6 +26,10 @@ export default function useLibrary() {
     const url = URL.createObjectURL(blob);
     urlsRef.current.set(bookId, url);
     setCoverURLs(new Map(urlsRef.current));
+  }, []);
+
+  useEffect(() => {
+    requestPersistence();
   }, []);
 
   useEffect(() => {
@@ -82,13 +86,15 @@ export default function useLibrary() {
       setBooks((current) => [...current, book]);
       await db.putBook(book);
 
-      if (result.coverURL) {
-        const aspect = await saveCover(book.id, result.coverURL).catch(() => null);
+      if (result.coverMasterURL || result.coverURL) {
+        const aspect = await saveCover(book.id, result.coverMasterURL ?? result.coverURL, {
+          fallbackURL: result.coverURL
+        }).catch(() => null);
         if (aspect) {
           const withCover = { ...book, coverAspect: aspect };
           await db.putBook(withCover);
           setBooks((current) => current.map((b) => (b.id === book.id ? withCover : b)));
-          const blob = await db.getCover(book.id);
+          const blob = await db.getThumb(book.id);
           if (blob) setCover(book.id, blob);
         }
       }
@@ -125,11 +131,11 @@ export default function useLibrary() {
   }, []);
 
   const replaceCover = useCallback(
-    async (bookId, url) => {
-      const aspect = await saveCover(bookId, url);
+    async (bookId, url, fallbackURL) => {
+      const aspect = await saveCover(bookId, url, { fallbackURL });
       if (!aspect) return false;
       await updateBook(bookId, { coverAspect: aspect });
-      const blob = await db.getCover(bookId);
+      const blob = await db.getThumb(bookId);
       if (blob) setCover(bookId, blob);
       return true;
     },

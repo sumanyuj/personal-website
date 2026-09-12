@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sheet from './Sheet.jsx';
 import { READ_STATUS, authorLine } from '../model/book.js';
+import { getCover } from '../model/db.js';
 
 function Stars({ value, onChange }) {
   return (
@@ -40,7 +41,30 @@ export default function BookDetailSheet({
   onClose
 }) {
   const [confirming, setConfirming] = useState(false);
+  // The shelf draws a display-sized derivative to keep its memory sane; here the
+  // cover is actually looked at, so the full-resolution master is loaded on open
+  // and released again on close.
+  const [masterURL, setMasterURL] = useState(null);
   const set = (changes) => onChange(book.id, changes);
+
+  useEffect(() => {
+    let url = null;
+    let cancelled = false;
+
+    getCover(book.id)
+      .then((blob) => {
+        if (cancelled || !blob) return;
+        url = URL.createObjectURL(blob);
+        setMasterURL(url);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      setMasterURL(null);
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [book.id]);
 
   return (
     <Sheet
@@ -59,8 +83,8 @@ export default function BookDetailSheet({
       }
     >
       <div className="detail__head">
-        {coverURL ? (
-          <img className="detail__cover" src={coverURL} alt="" />
+        {masterURL || coverURL ? (
+          <img className="detail__cover" src={masterURL ?? coverURL} alt="" />
         ) : (
           <span className="detail__cover" style={{ height: 180 }} />
         )}

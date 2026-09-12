@@ -9,8 +9,24 @@ import { getTexture, putTexture } from '../model/db.js';
  * reproducing a bitmap that cannot have changed.
  */
 
-const SIZE = 512;
 const inFlight = new Map();
+
+/**
+ * Tile resolution is chosen from how large the tile is drawn and how dense the
+ * display is, so the bitmap is never scaled up.
+ *
+ * The boards are drawn at a 430px tile, which on a 2× display is 860 device
+ * pixels — a 512² tile was being stretched by two thirds, and the grain showed
+ * it. Generation cost is quadratic (85ms at 512², 1.25s at 2048²) but it is
+ * paid once per browser and then served from IndexedDB.
+ */
+function tileResolution(cssTile) {
+  const density = Math.min(window.devicePixelRatio || 1, 3);
+  const needed = cssTile * density;
+  let size = 512;
+  while (size < needed && size < 2048) size *= 2;
+  return size;
+}
 
 let worker = null;
 let nextJobId = 0;
@@ -33,11 +49,11 @@ function ensureWorker() {
   return worker;
 }
 
-function renderInWorker(vertical, seed) {
+function renderInWorker(size, vertical, seed) {
   return new Promise((resolve, reject) => {
     const id = nextJobId++;
     pending.set(id, { resolve, reject });
-    ensureWorker().postMessage({ id, size: SIZE, vertical, seed });
+    ensureWorker().postMessage({ id, size, vertical, seed });
   });
 }
 
@@ -45,8 +61,9 @@ function renderInWorker(vertical, seed) {
  * Resolves to an object URL for the tile, or null if generation is unavailable —
  * callers fall back to a flat colour, so the shelves still read as wood.
  */
-export function woodTileURL(vertical, seed) {
-  const key = `${SIZE}-${vertical ? 'v' : 'h'}-${seed}`;
+export function woodTileURL(vertical, seed, cssTile) {
+  const size = tileResolution(cssTile);
+  const key = `${size}-${vertical ? 'v' : 'h'}-${seed}`;
   if (inFlight.has(key)) return inFlight.get(key);
 
   const job = (async () => {
@@ -60,7 +77,7 @@ export function woodTileURL(vertical, seed) {
     if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') return null;
 
     try {
-      const blob = await renderInWorker(vertical, seed);
+      const blob = await renderInWorker(size, vertical, seed);
       putTexture(key, blob).catch(() => {});
       return URL.createObjectURL(blob);
     } catch {

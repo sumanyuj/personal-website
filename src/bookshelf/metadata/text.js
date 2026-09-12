@@ -92,11 +92,24 @@ export function isbnFromArtwork(url) {
 }
 
 /**
- * Apple's CDN resizes by URL. `1400x0w` gives roughly 1400×2500 with no
- * letterbox padding — about six times the resolution Open Library's largest
- * cover offers.
+ * Apple's CDN resizes and transcodes by URL.
+ *
+ * Asking for a width at or above the master's returns the master unchanged —
+ * 1466×2625 for a typical cover, rather than the 1400×2507 that `1400x0w`
+ * caps at — and the `.webp` extension has the CDN transcode from that master,
+ * which is both smaller and cleaner than re-encoding a JPEG locally.
  */
-export function upscaleArtwork(url) {
+export function artworkAt(url, spec) {
   if (!url) return null;
-  return url.replace(/\/\d+x\d+(bb|w)?\.(jpg|png)$/, '/1400x0w.jpg');
+  return url.replace(/\/\d+x\d+(bb|w)?\.(jpg|png|webp)$/, `/${spec}`);
 }
+
+/** Full resolution, for the copy kept in the library. */
+export const masterArtwork = (url) => artworkAt(url, '2000x0w.webp');
+
+/**
+ * A thumbnail for the results list, which draws covers at 44px. Fetching
+ * masters for twenty results meant several megabytes to fill a strip of
+ * postage stamps.
+ */
+export const thumbArtwork = (url) => artworkAt(url, '300x0w.webp');

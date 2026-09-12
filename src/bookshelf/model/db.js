@@ -13,12 +13,15 @@
  */
 
 const DB_NAME = 'bookshelf';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const STORE = {
   books: 'books',
   lists: 'lists',
+  /** Full-resolution masters, exactly as the source delivered them. */
   covers: 'covers',
+  /** Display-sized derivatives; see covers.js for why both are kept. */
+  thumbs: 'thumbs',
   textures: 'textures'
 };
 
@@ -40,8 +43,9 @@ function open() {
       if (!db.objectStoreNames.contains(STORE.lists)) {
         db.createObjectStore(STORE.lists, { keyPath: 'id' }).createIndex('sortIndex', 'sortIndex');
       }
-      // Keyed by book id; the value is a Blob.
+      // Both keyed by book id; the values are Blobs.
       if (!db.objectStoreNames.contains(STORE.covers)) db.createObjectStore(STORE.covers);
+      if (!db.objectStoreNames.contains(STORE.thumbs)) db.createObjectStore(STORE.thumbs);
       // Generated wood, so it is rendered once per browser rather than per load.
       if (!db.objectStoreNames.contains(STORE.textures)) db.createObjectStore(STORE.textures);
     };
@@ -103,12 +107,17 @@ export function putBooks(books) {
 }
 
 export function deleteBooks(ids) {
-  return run([STORE.books, STORE.covers], 'readwrite', ({ books, covers }) => {
-    for (const id of ids) {
-      books.delete(id);
-      covers.delete(id);
+  return run(
+    [STORE.books, STORE.covers, STORE.thumbs],
+    'readwrite',
+    ({ books, covers, thumbs }) => {
+      for (const id of ids) {
+        books.delete(id);
+        covers.delete(id);
+        thumbs.delete(id);
+      }
     }
-  });
+  );
 }
 
 // MARK: - Collections
@@ -131,21 +140,30 @@ export function deleteList(id) {
 
 // MARK: - Covers
 
+/** The full-resolution master. Read on demand — these are large. */
 export function getCover(bookId) {
   return run(STORE.covers, 'readonly', (store) => request(store.get(bookId)));
 }
 
-export function putCover(bookId, blob) {
-  return run(STORE.covers, 'readwrite', (store) => store.put(blob, bookId));
+/** The display-sized derivative the shelf draws. */
+export function getThumb(bookId) {
+  return run(STORE.thumbs, 'readonly', (store) => request(store.get(bookId)));
 }
 
-/** Every cover at once, as a Map, so first paint issues one transaction. */
+export function putCover(bookId, full, thumb) {
+  return run([STORE.covers, STORE.thumbs], 'readwrite', ({ covers, thumbs }) => {
+    covers.put(full, bookId);
+    thumbs.put(thumb ?? full, bookId);
+  });
+}
+
+/** Every thumbnail at once, as a Map, so first paint issues one transaction. */
 export async function allCovers() {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE.covers, 'readonly');
+    const tx = db.transaction(STORE.thumbs, 'readonly');
     const covers = new Map();
-    const cursorRequest = tx.objectStore(STORE.covers).openCursor();
+    const cursorRequest = tx.objectStore(STORE.thumbs).openCursor();
     cursorRequest.onsuccess = () => {
       const cursor = cursorRequest.result;
       if (!cursor) return;

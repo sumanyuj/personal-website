@@ -4,13 +4,13 @@ import { WOOD, woodTileURL } from '../design/wood.js';
 import { chunk, shelfWidth } from '../model/layout.js';
 
 /** Resolves a generated wood tile to a background-image, once per surface. */
-function useWoodTile({ vertical, seed }) {
+function useWoodTile({ vertical, seed, tile }) {
   const [url, setUrl] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     let resolved = null;
-    Promise.resolve(woodTileURL(vertical, seed)).then((value) => {
+    Promise.resolve(woodTileURL(vertical, seed, tile)).then((value) => {
       if (cancelled) {
         // The URL is shared via the module-level cache, so it is not revoked
         // here — a second mount would be left with a dead reference.
@@ -23,7 +23,7 @@ function useWoodTile({ vertical, seed }) {
       cancelled = true;
       void resolved;
     };
-  }, [vertical, seed]);
+  }, [vertical, seed, tile]);
 
   return url;
 }

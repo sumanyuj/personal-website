@@ -2,11 +2,12 @@ import { rank } from './rank.js';
 import {
   isEnglishISBN,
   isbnFromArtwork,
+  masterArtwork,
   normalise,
   splitAuthors,
   stripHTML,
-  titlesAgree,
-  upscaleArtwork
+  thumbArtwork,
+  titlesAgree
 } from './text.js';
 
 /**
@@ -135,7 +136,8 @@ export async function searchApple(query, { signal } = {}) {
         publishedDate: r.releaseDate ? String(r.releaseDate).slice(0, 10) : null,
         subjects: r.genres ?? [],
         isbn13: isbnFromArtwork(artwork),
-        coverURL: upscaleArtwork(artwork),
+        coverURL: thumbArtwork(artwork),
+        coverMasterURL: masterArtwork(artwork),
         candidateISBNs: [],
         source: 'apple'
       };
@@ -179,7 +181,9 @@ async function searchOpenLibrary(query, { signal } = {}) {
         isbn13: isbns.find((i) => i.length === 13) ?? null,
         isbn10: isbns.find((i) => i.length === 10) ?? null,
         candidateISBNs: isbns.filter((i) => i.length === 13).slice(0, 6),
-        coverURL: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : null,
+        // Open Library offers S/M/L only; L is the largest there is.
+        coverURL: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null,
+        coverMasterURL: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : null,
         source: 'openlibrary'
       };
     })
@@ -301,6 +305,7 @@ export async function search(query, { signal, onPartial } = {}) {
     // but only trust it when it has some.
     if (a.authors.length) existing.authors = a.authors;
     existing.coverURL = a.coverURL ?? existing.coverURL;
+    existing.coverMasterURL = a.coverMasterURL ?? existing.coverMasterURL;
     existing.isbn13 = a.isbn13 ?? existing.isbn13;
     // Apple's ISBN names the very edition whose cover we display, so it is the
     // best first guess; the rest stay as fallbacks.

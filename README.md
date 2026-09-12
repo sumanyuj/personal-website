@@ -46,9 +46,33 @@ Carried over from the native app:
   French *Pale Fire* wins the merge.
 - **Collections**, editable details, and a sortable list view.
 
-Covers are re-encoded to WebP at display width before being stored. Apple serves
-~1400×2500, which is wonderful on screen and would run a 200-book library to
-80MB on disk.
+### Asset resolution
+
+Both surfaces are kept at the highest resolution the source actually holds.
+
+**Covers.** Two things came out of probing Apple's CDN that the native app did
+not use. `1400x0w` is not a ceiling — asking for any width at or above the
+master returns the master itself, which is 1466×2625 for one book and 1649×2475
+for another, so the request asks for more than exists and takes what comes back.
+And the CDN transcodes by extension: the same pixels cost 74KB as WebP against
+434KB as JPEG, encoded from the master rather than re-encoded from a JPEG here.
+The master is therefore stored exactly as delivered — no canvas round trip, no
+generation loss.
+
+A display-sized derivative is stored beside it. A 1649×2475 image decodes to
+roughly 16MB of bitmap, and a shelf of twenty would ask the browser to hold
+several hundred megabytes at once; the shelf draws the derivative and the detail
+sheet, where a cover is actually inspected, draws the master. Search results use
+a 300px thumbnail — they are drawn at 44px, and pulling masters for twenty
+results was several megabytes to fill a strip of postage stamps.
+
+**Wood.** Tile resolution follows how large the tile is drawn and how dense the
+display is, so the bitmap is never scaled up. The boards are drawn at a 430px
+tile, which on a 2× display is 860 device pixels — a 512² tile was being
+stretched by two thirds and the grain showed it. Generation is quadratic (85ms
+at 512², 313ms at 1024², 1.25s at 2048²) but is paid once per browser and then
+served from IndexedDB, and the tiles are stored as PNG rather than WebP so the
+grain stays lossless.
 
 ### Getting there from the homepage
 
