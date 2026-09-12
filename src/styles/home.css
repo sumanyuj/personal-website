@@ -1,9 +1,15 @@
 /* Only the regular face is referenced. The bold and italic cuts, and the
    182KB Adelle Mono used solely by the removed buttons, are no longer
-   requested — the files remain in the repo but never reach the bundle. */
+   requested — the files remain in the repo but never reach the bundle.
+
+   WOFF2 rather than the original OpenType: a quarter of the bytes, and a
+   content type servers actually agree on (.otf is widely mistyped as an
+   OpenDocument template). Every browser that supports the ES modules this
+   page is delivered as has supported WOFF2 for years, so there is no
+   fallback to carry. */
 @font-face {
   font-family: 'Golden Decades';
-  src: url('../../fonts/Fontspring-DEMO-goldendecades-regular.otf') format('opentype');
+  src: url('../../fonts/Fontspring-DEMO-goldendecades-regular.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
