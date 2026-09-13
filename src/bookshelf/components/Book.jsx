@@ -2,86 +2,105 @@ import { memo } from 'react';
 import { authorLine } from '../model/book.js';
 
 /**
- * Stable hash for the placeholder colour, so the same book always looks the
- * same. String hashing rather than anything seeded per session.
+ * Cloth-binding colours for books with no artwork, picked deterministically
+ * from the title so a given book always looks the same.
  */
-function hue(title) {
-  let h = 5381;
-  for (let i = 0; i < title.length; i++) h = (h * 33 + title.charCodeAt(i)) % 0xffffffff;
-  return h % 360;
+const CLOTH = [
+  ['#2ba6de', '#1b7fb4'],
+  ['#1d4f7c', '#12324f'],
+  ['#8e2b2b', '#611a1a'],
+  ['#2f6b46', '#1d472d'],
+  ['#6b4a86', '#472f5a'],
+  ['#b5651d', '#8a4a12'],
+  ['#25666e', '#154046'],
+  ['#7a1f3d', '#511128']
+];
+
+function hash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
-function Placeholder({ book, height }) {
+function GeneratedCover({ book }) {
+  const [c1, c2] = CLOTH[hash(book.title || '') % CLOTH.length];
+  const author = book.authors?.[0];
   return (
-    <div
-      className="book__placeholder"
-      style={{
-        '--hue': hue(book.title),
-        '--title-size': `${Math.max(9, height * 0.082)}px`,
-        '--author-size': `${Math.max(7, height * 0.055)}px`
-      }}
-    >
-      <span className="book__placeholder-title">{book.title}</span>
-      <span className="book__placeholder-rule" />
-      <span className="book__placeholder-author">{authorLine(book)}</span>
+    <div className="gen-cover" style={{ '--c1': c1, '--c2': c2 }}>
+      <div className="gen-grain" />
+      <div className="gen-title">{book.title}</div>
+      {author && (
+        <div className="gen-author">
+          <span className="gen-by">By</span>
+          {author}
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * One book standing on a board: cover, binding, page edge, and the shadows that
- * make it sit on the wood rather than float above it.
+ * One book standing on a board.
+ *
+ * The width is not computed: the cover keeps its own aspect, clamped so an
+ * unusually square or narrow one still shelves sensibly, and the slot centres
+ * whatever comes out. That is why the shelf is not a uniform grid.
+ *
+ * The binding is deliberately two elements. A bound edge down the left and a
+ * single raking highlight across the board is all it takes to read as an
+ * object; the hinge crease and page block this replaces were more drawing for
+ * something nobody looks at directly.
  */
-function Book({ book, coverURL, width, height, selected, editing, onOpen }) {
+function Book({ book, coverURL, height, selected, editing, onOpen }) {
   return (
-    <div
-      className={`book${selected ? ' book--selected' : ''}`}
-      style={{
-        width,
-        height,
-        // Driven off the book's own width so the binding stays proportionate at
-        // every zoom level, exactly as the native app derives it.
-        '--band': `${Math.max(3, width * 0.075)}px`,
-        '--pages': `${Math.max(1.5, width * 0.024)}px`,
-        '--fore-radius': `${Math.max(1.5, width * 0.03)}px`
-      }}
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
+      className={`book${selected ? ' is-selected' : ''}${editing ? ' is-editable' : ''}`}
+      style={{ '--book-h': `${height}px` }}
+      onClick={() => onOpen(book)}
+      title={`${book.title}${book.authors?.[0] ? ` — ${book.authors[0]}` : ''}`}
       aria-label={`${book.title} by ${authorLine(book)}`}
       aria-pressed={editing ? selected : undefined}
-      onClick={() => onOpen(book)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpen(book);
-        }
-      }}
     >
-      <span className="book__contact" aria-hidden="true" />
-      <div className="book__stack">
+      <span className="book-body">
         {coverURL ? (
-          <img className="book__cover" src={coverURL} alt="" loading="lazy" decoding="async" />
+          <img
+            className="book-img"
+            src={coverURL}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
-          <Placeholder book={book} height={height} />
+          <GeneratedCover book={book} />
         )}
-        <span className="book__binding" aria-hidden="true" />
-      </div>
-      {editing && (
-        <span className={`book__badge${selected ? ' book__badge--on' : ''}`} aria-hidden="true">
-          {selected && (
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M2 6.5 4.8 9.2 10 3.4"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
-        </span>
-      )}
-    </div>
+        <span className="book-spine" />
+        <span className="book-gloss" />
+        {book.readStatus === 'read' && (
+          <span className="badge-read" title="Read">
+            ✓
+          </span>
+        )}
+        {editing && (
+          <span className={`selmark${selected ? ' is-on' : ''}`}>
+            {selected && (
+              <svg width="13" height="11" viewBox="0 0 13 11" aria-hidden="true">
+                <path
+                  d="M1.4 5.8l3.4 3.5L11.6 1.6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </span>
+        )}
+      </span>
+      <span className="book-shadow" />
+    </button>
   );
 }
 

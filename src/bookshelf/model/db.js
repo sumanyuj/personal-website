@@ -13,7 +13,7 @@
  */
 
 const DB_NAME = 'bookshelf';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORE = {
   books: 'books',
@@ -21,8 +21,7 @@ export const STORE = {
   /** Full-resolution masters, exactly as the source delivered them. */
   covers: 'covers',
   /** Display-sized derivatives; see covers.js for why both are kept. */
-  thumbs: 'thumbs',
-  textures: 'textures'
+  thumbs: 'thumbs'
 };
 
 let dbPromise = null;
@@ -72,8 +71,10 @@ function openOnce() {
       // Both keyed by book id; the values are Blobs.
       if (!db.objectStoreNames.contains(STORE.covers)) db.createObjectStore(STORE.covers);
       if (!db.objectStoreNames.contains(STORE.thumbs)) db.createObjectStore(STORE.thumbs);
-      // Generated wood, so it is rendered once per browser rather than per load.
-      if (!db.objectStoreNames.contains(STORE.textures)) db.createObjectStore(STORE.textures);
+      // The wood used to be generated and cached here. It ships as an image
+      // now, so the store is dropped and the megabyte or so of tiles it held in
+      // every existing library is handed back.
+      if (db.objectStoreNames.contains('textures')) db.deleteObjectStore('textures');
     };
 
     request.onsuccess = () => {
@@ -219,16 +220,6 @@ export async function allCovers() {
     tx.oncomplete = () => resolve(covers);
     tx.onerror = () => reject(tx.error);
   });
-}
-
-// MARK: - Generated textures
-
-export function getTexture(key) {
-  return run(STORE.textures, 'readonly', (store) => request(store.get(key)));
-}
-
-export function putTexture(key, blob) {
-  return run(STORE.textures, 'readwrite', (store) => store.put(blob, key));
 }
 
 // MARK: - Export / import

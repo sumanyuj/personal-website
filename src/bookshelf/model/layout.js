@@ -7,60 +7,47 @@
  */
 
 export const METRICS = {
-  /** Thickness of a shelf board, including its rounded front edge. */
-  boardThickness: 20,
-  /** Gap between the top of a book and the board above it. */
-  headroom: 16,
-  /**
-   * The widest cover aspect (width ÷ height) a slot must accommodate without
-   * clipping. Trade paperbacks sit near 0.65; art and film tie-in editions run
-   * wider, so the slot is sized for the worst case.
-   */
-  widestCoverAspect: 0.78,
+  /** Thickness of a shelf board, including its front edge. Matches .shelf-board. */
+  boardThickness: 32,
+  /** Clearance between a book's top and the board above it. */
+  headroom: 26,
   minZoom: 0.68,
   maxZoom: 1.9,
-  /** Shortest a shelf opening is allowed to get before we drop a row. */
-  minRowHeight: 150,
-  maxRowHeight: 260
+  /** Smallest usable shelf opening, board included. */
+  minRowHeight: 248,
+  /** Bounds on how tall a book may stand, whatever the opening allows. */
+  minBookHeight: 140,
+  maxBookHeight: 268,
+  /** Slot width as a fraction of book height. */
+  slotRatio: 0.8,
+  /** Horizontal padding on the case, matching .shelves. */
+  sidePadding: 24
 };
 
 export const clampZoom = (z) => Math.min(Math.max(z, METRICS.minZoom), METRICS.maxZoom);
 
 export function shelfLayout({ width, height, compact, zoom = 1 }) {
-  const w = Math.max(width, 200);
-  const h = Math.max(height, 200);
   const z = clampZoom(zoom);
+  const usableWidth = Math.max(width - METRICS.sidePadding * 2 - 8, 160);
+  const usableHeight = Math.max(height - 8, 160);
 
-  // Height first. The shelf opening is what sets how tall a book can be, and
-  // everything else follows from that — including how many books fit across,
-  // which is why zooming the row height is enough to drive the whole layout.
+  // Rows first, from the smallest opening that is still worth looking at. Zoom
+  // scales that threshold, which is enough to drive the whole layout: book
+  // height follows from the opening, and column count follows from book height.
   const minRow = METRICS.minRowHeight * z;
-  const maxRow = METRICS.maxRowHeight * z;
-  const target = (minRow + maxRow) / 2;
+  const rows = Math.max(1, Math.floor(usableHeight / minRow));
+  const rowHeight = usableHeight / rows;
 
-  let rows = Math.max(1, Math.round(h / target));
-  let rowHeight = h / rows;
+  // Fill the opening rather than leaving a bare strip of wood above the books.
+  const bookHeight = Math.round(
+    Math.min(
+      METRICS.maxBookHeight * z,
+      Math.max(METRICS.minBookHeight, rowHeight - METRICS.boardThickness - METRICS.headroom)
+    )
+  );
 
-  // If that left the openings too tall or short, step the row count.
-  if (rowHeight > maxRow && rows < 8) {
-    rows += 1;
-    rowHeight = h / rows;
-  } else if (rowHeight < minRow && rows > 1) {
-    rows -= 1;
-    rowHeight = h / rows;
-  }
-
-  const bookHeight = Math.max(44, rowHeight - METRICS.boardThickness - METRICS.headroom);
-
-  // Columns are derived from the book height, not chosen independently. Picking
-  // a column count first made slots narrower than the tallest allowed book, so
-  // wide covers had their edges clipped off — titles losing their last letter.
-  const sideMargin = compact ? 6 : 12;
-  const usable = w - sideMargin * 2;
-  const widestBook = bookHeight * METRICS.widestCoverAspect;
-  const slotNeeded = widestBook * (compact ? 1.06 : 1.16); // book plus its gap
-  const columns = Math.max(compact ? 2 : 3, Math.floor(usable / slotNeeded));
-  const slotWidth = usable / columns;
+  const slotWidth = Math.round(bookHeight * METRICS.slotRatio);
+  const columns = Math.max(compact ? 2 : 1, Math.floor(usableWidth / slotWidth));
 
   return {
     rows,
@@ -68,20 +55,8 @@ export function shelfLayout({ width, height, compact, zoom = 1 }) {
     rowHeight,
     bookHeight,
     slotWidth,
-    bookMaxWidth: slotWidth * 0.9,
-    sideMargin,
     perPage: rows * columns
   };
-}
-
-/**
- * How wide this book should stand, given how tall the shelf lets it be.
- * Clamped so an unusually square or narrow cover still shelves sensibly.
- */
-export function shelfWidth(book, bookHeight, maxWidth) {
-  const aspect = book.coverAspect ?? 0.645; // a typical trade paperback
-  const natural = bookHeight * Math.min(Math.max(aspect, 0.48), METRICS.widestCoverAspect);
-  return Math.min(natural, maxWidth);
 }
 
 export function chunk(items, size) {

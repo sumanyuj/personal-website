@@ -1,125 +1,88 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import Book from './Book.jsx';
-import { WOOD, woodTileURL } from '../design/wood.js';
-import { METRICS, chunk, shelfWidth } from '../model/layout.js';
+import { WOOD } from '../design/wood.js';
+import { chunk } from '../model/layout.js';
 
-/** Resolves a generated wood tile to a background-image, once per surface. */
-function useWoodTile({ vertical, seed, tile, grade }) {
-  const [url, setUrl] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let resolved = null;
-    Promise.resolve(woodTileURL(vertical, seed, tile, grade)).then((value) => {
-      if (cancelled) {
-        // The URL is shared via the module-level cache, so it is not revoked
-        // here — a second mount would be left with a dead reference.
-        return;
-      }
-      resolved = value;
-      setUrl(value);
-    });
-    return () => {
-      cancelled = true;
-      void resolved;
-    };
-  }, [vertical, seed, tile, grade]);
-
-  return url;
-}
-
+/** The back panel, its plank seams, and the light falling off toward the case edges. */
 export function BackPanel() {
-  const url = useWoodTile(WOOD.panel);
-  return (
-    <div
-      className="case__panel"
-      aria-hidden="true"
-      // Tile size comes from the same constant the texture was generated for,
-      // rather than being repeated in the stylesheet where the two drift apart.
-      style={{
-        backgroundSize: `${WOOD.panel.tile}px ${WOOD.panel.tile}px`,
-        ...(url ? { backgroundImage: `url(${url})` } : null)
-      }}
-    />
-  );
-}
-
-/**
- * The two upright sides of the case.
- *
- * Real geometry rather than a shadow painted at the edges: they carry the same
- * vertical grain as the back panel, they are lit down their front arris, and
- * they sit above the boards so the shelves visibly run into them the way the
- * shelves of an actual bookcase do.
- */
-export function CaseSides() {
-  const url = useWoodTile(WOOD.panel);
-  const style = {
-    backgroundSize: `${WOOD.panel.tile}px ${WOOD.panel.tile}px`,
-    ...(url ? { backgroundImage: `url(${url})` } : null)
-  };
   return (
     <>
-      <span className="case__side case__side--left" aria-hidden="true" style={style} />
-      <span className="case__side case__side--right" aria-hidden="true" style={style} />
+      <div
+        className="stage-wood"
+        aria-hidden="true"
+        style={{
+          backgroundImage: `url(${WOOD.panel.url})`,
+          backgroundSize: `${WOOD.panel.tile}px`
+        }}
+      />
+      {/* Its own layer rather than a pseudo-element on the panel, so it can sit
+          between the wood and the shelves: the case darkens toward its edges,
+          the books standing in front of it do not. */}
+      <div className="stage-vignette" aria-hidden="true" />
     </>
   );
 }
 
-export const ShelfBoard = memo(function ShelfBoard({ tileURL }) {
+/**
+ * A shelf board: a lit top surface rolling into a shadowed front edge, with the
+ * shadow it throws onto the panel below carried by a strip beneath it.
+ */
+export const ShelfBoard = memo(function ShelfBoard() {
   return (
-    <div
-      className="board"
-      aria-hidden="true"
-      style={{
-        backgroundSize: `${WOOD.board.tile}px ${WOOD.board.tile}px`,
-        ...(tileURL ? { backgroundImage: `url(${tileURL})` } : null)
-      }}
-    />
+    <div className="shelf-board" aria-hidden="true">
+      <div
+        className="board-face"
+        style={{
+          backgroundImage: `linear-gradient(
+            180deg,
+            rgba(255, 252, 242, 0.62) 0%,
+            rgba(255, 250, 236, 0.46) 11%,
+            rgba(255, 255, 255, 0.1) 15%,
+            rgba(255, 255, 255, 0.02) 30%,
+            rgba(0, 0, 0, 0.1) 62%,
+            rgba(0, 0, 0, 0.3) 88%,
+            rgba(0, 0, 0, 0.46) 100%
+          ), url(${WOOD.board.url})`,
+          backgroundSize: `auto, ${WOOD.board.tile}px`
+        }}
+      />
+      <div className="board-lip" />
+    </div>
   );
 });
 
-/** One row of books plus the board they stand on. */
-const ShelfRow = memo(function ShelfRow({
-  books,
-  layout,
-  coverURLs,
-  selection,
-  editing,
-  onOpen,
-  tileURL
-}) {
+/** One row of books standing in a recess, with the board they stand on below. */
+const ShelfRow = memo(function ShelfRow({ books, layout, coverURLs, selection, editing, onOpen }) {
   return (
-    <div className="shelf-row" style={{ height: layout.rowHeight }}>
-      <div
-        className="shelf-row__books"
-        style={{
-          height: layout.rowHeight - METRICS.boardThickness,
-          paddingInline: layout.sideMargin
-        }}
-      >
-        {books.map((book) => (
-          <div key={book.id} className="shelf-row__slot" style={{ width: layout.slotWidth }}>
-            <Book
-              book={book}
-              coverURL={coverURLs.get(book.id)}
-              width={shelfWidth(book, layout.bookHeight, layout.bookMaxWidth)}
-              height={layout.bookHeight}
-              selected={selection.has(book.id)}
-              editing={editing}
-              onOpen={onOpen}
-            />
-          </div>
-        ))}
+    <div className="shelf" style={{ minHeight: layout.rowHeight }}>
+      <div className="shelf-recess">
+        <div className="shelf-books">
+          {books.map((book) => (
+            <div
+              key={book.id}
+              className="slot"
+              style={{ width: layout.slotWidth, flex: `0 0 ${layout.slotWidth}px` }}
+            >
+              <Book
+                book={book}
+                coverURL={coverURLs.get(book.id)}
+                height={layout.bookHeight}
+                selected={selection.has(book.id)}
+                editing={editing}
+                onOpen={onOpen}
+              />
+            </div>
+          ))}
+        </div>
       </div>
-      <ShelfBoard tileURL={tileURL} />
+      <ShelfBoard />
     </div>
   );
 });
 
 /**
- * The whole bookcase: rows of books on boards, paged sideways on roomy screens
- * and scrolled vertically on a phone — paging a 3-wide shelf would mean a lot of
+ * The case: rows of books on boards, paged sideways on roomy screens and
+ * scrolled vertically on a phone — paging a 3-wide shelf would mean a lot of
  * pages.
  */
 function Shelf({
@@ -133,14 +96,12 @@ function Shelf({
   page,
   onPageChange
 }) {
-  const tileURL = useWoodTile(WOOD.board);
   const pagesRef = useRef(null);
-
   const rows = (items) => chunk(items, layout.columns);
   const pages = compact ? [books] : chunk(books, layout.perPage);
 
-  // Keep the scroller in step when the page is changed from the dots rather than
-  // by swiping.
+  // Keep the scroller in step when the page is changed from the dots rather
+  // than by swiping.
   useEffect(() => {
     const el = pagesRef.current;
     if (!el || compact) return;
@@ -148,11 +109,11 @@ function Shelf({
     if (Math.abs(el.scrollLeft - target) > 4) el.scrollTo({ left: target, behavior: 'smooth' });
   }, [page, compact]);
 
-  const rowProps = { layout, coverURLs, selection, editing, onOpen, tileURL };
+  const rowProps = { layout, coverURLs, selection, editing, onOpen };
 
   if (compact) {
     return (
-      <div className="case__scroll">
+      <div className="shelves case__scroll">
         {rows(books).map((row, i) => (
           <ShelfRow key={i} books={row} {...rowProps} />
         ))}
@@ -173,7 +134,7 @@ function Shelf({
       {pages.map((pageBooks, index) => {
         const pageRows = rows(pageBooks);
         return (
-          <div className="case__page" key={index}>
+          <div className="case__page shelves" key={index}>
             {pageRows.map((row, i) => (
               <ShelfRow key={i} books={row} {...rowProps} />
             ))}

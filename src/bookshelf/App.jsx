@@ -4,7 +4,7 @@ import AddBookSheet from './components/AddBookSheet.jsx';
 import BookDetailSheet from './components/BookDetailSheet.jsx';
 import CollectionsSheet from './components/CollectionsSheet.jsx';
 import LibraryList from './components/LibraryList.jsx';
-import Shelf, { BackPanel, CaseSides } from './components/Shelf.jsx';
+import Shelf, { BackPanel } from './components/Shelf.jsx';
 import { BooksIcon } from './components/icons.jsx';
 import useElementSize from './hooks/useElementSize.js';
 import useStoredState from './hooks/useStoredState.js';
@@ -154,8 +154,6 @@ export default function App() {
             onOpen={openBook}
           />
         )}
-
-        <CaseSides />
 
         {toast && <div className="toast">{toast}</div>}
       </div>

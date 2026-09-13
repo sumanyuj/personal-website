@@ -1,0 +1,9 @@
+wood.jpg
+  Source : ambientCG.com - asset "Wood048" (Color map, 2K JPG)
+  URL    : https://ambientcg.com/view?id=Wood048
+  License: CC0 1.0 Universal / Public Domain
+           No attribution legally required; recorded here for provenance.
+
+Re-encoded to WebP (quality 82) for the web build. Same 2048x2048 pixels as the
+source JPEGs, about a quarter fewer bytes; wood is high-entropy enough that
+WebP above ~q86 is larger than the JPEG it replaces.

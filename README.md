@@ -26,17 +26,18 @@ headers, so there is no proxy to operate.
 
 | Path | What it is |
 |---|---|
-| `src/bookshelf/design/woodTexture.js` | The maple, generated procedurally |
+| `src/bookshelf/assets/` | The wood, and where it came from |
 | `src/bookshelf/metadata/` | Apple Books + Open Library, merge and ranking |
 | `src/bookshelf/model/` | IndexedDB store, layout maths, cover handling |
 | `src/bookshelf/components/` | Shelf, chrome, sheets, list |
 
 Carried over from the native app:
 
-- **Wooden shelves**, generated rather than photographed, so they tile
-  seamlessly and carry no asset licence. Rendered once in a worker and cached in
-  IndexedDB — a 512² tile is a few hundred thousand fbm evaluations and would
-  visibly stall the main thread.
+- **Wooden shelves**, finished in the same photograph the desktop app uses —
+  ambientCG's Wood048 colour map, CC0, two seamless 2048² tiles. This replaced a
+  procedural generator: it tiled seamlessly and carried no licence, but nothing
+  got it to the contrast and fine grain of a photograph, and every setting that
+  sharpened it turned the panel into reeded screening.
 - **Books as wide as their own cover art**, so the shelf isn't a uniform grid.
 - **Zoom**, by slider or trackpad pinch, remembered between visits.
 - **Add by search**, querying both sources at once. Apple answers first and is
@@ -66,13 +67,12 @@ sheet, where a cover is actually inspected, draws the master. Search results use
 a 300px thumbnail — they are drawn at 44px, and pulling masters for twenty
 results was several megabytes to fill a strip of postage stamps.
 
-**Wood.** Tile resolution follows how large the tile is drawn and how dense the
-display is, so the bitmap is never scaled up. The boards are drawn at a 430px
-tile, which on a 2× display is 860 device pixels — a 512² tile was being
-stretched by two thirds and the grain showed it. Generation is quadratic (85ms
-at 512², 313ms at 1024², 1.25s at 2048²) but is paid once per browser and then
-served from IndexedDB, and the tiles are stored as PNG rather than WebP so the
-grain stays lossless.
+**Wood.** Both tiles are the source's full 2048², re-encoded to WebP at quality
+82 — about a quarter fewer bytes than the JPEGs they came from. Wood is
+high-entropy enough that WebP above roughly q86 is *larger* than the JPEG it
+replaces, so the usual "just use WebP" instinct is worth measuring here rather
+than assuming. At an 880px tile on a 2× display the panel needs 1760 device
+pixels, so 2048 is the right source size and nothing is ever scaled up.
 
 ### Getting there from the homepage
 
