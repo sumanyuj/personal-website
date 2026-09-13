@@ -1,16 +1,16 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import Book from './Book.jsx';
 import { WOOD, woodTileURL } from '../design/wood.js';
-import { chunk, shelfWidth } from '../model/layout.js';
+import { METRICS, chunk, shelfWidth } from '../model/layout.js';
 
 /** Resolves a generated wood tile to a background-image, once per surface. */
-function useWoodTile({ vertical, seed, tile }) {
+function useWoodTile({ vertical, seed, tile, grade }) {
   const [url, setUrl] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     let resolved = null;
-    Promise.resolve(woodTileURL(vertical, seed, tile)).then((value) => {
+    Promise.resolve(woodTileURL(vertical, seed, tile, grade)).then((value) => {
       if (cancelled) {
         // The URL is shared via the module-level cache, so it is not revoked
         // here — a second mount would be left with a dead reference.
@@ -23,7 +23,7 @@ function useWoodTile({ vertical, seed, tile }) {
       cancelled = true;
       void resolved;
     };
-  }, [vertical, seed, tile]);
+  }, [vertical, seed, tile, grade]);
 
   return url;
 }
@@ -34,8 +34,35 @@ export function BackPanel() {
     <div
       className="case__panel"
       aria-hidden="true"
-      style={url ? { backgroundImage: `url(${url})` } : undefined}
+      // Tile size comes from the same constant the texture was generated for,
+      // rather than being repeated in the stylesheet where the two drift apart.
+      style={{
+        backgroundSize: `${WOOD.panel.tile}px ${WOOD.panel.tile}px`,
+        ...(url ? { backgroundImage: `url(${url})` } : null)
+      }}
     />
+  );
+}
+
+/**
+ * The two upright sides of the case.
+ *
+ * Real geometry rather than a shadow painted at the edges: they carry the same
+ * vertical grain as the back panel, they are lit down their front arris, and
+ * they sit above the boards so the shelves visibly run into them the way the
+ * shelves of an actual bookcase do.
+ */
+export function CaseSides() {
+  const url = useWoodTile(WOOD.panel);
+  const style = {
+    backgroundSize: `${WOOD.panel.tile}px ${WOOD.panel.tile}px`,
+    ...(url ? { backgroundImage: `url(${url})` } : null)
+  };
+  return (
+    <>
+      <span className="case__side case__side--left" aria-hidden="true" style={style} />
+      <span className="case__side case__side--right" aria-hidden="true" style={style} />
+    </>
   );
 }
 
@@ -44,7 +71,10 @@ export const ShelfBoard = memo(function ShelfBoard({ tileURL }) {
     <div
       className="board"
       aria-hidden="true"
-      style={tileURL ? { backgroundImage: `url(${tileURL})` } : undefined}
+      style={{
+        backgroundSize: `${WOOD.board.tile}px ${WOOD.board.tile}px`,
+        ...(tileURL ? { backgroundImage: `url(${tileURL})` } : null)
+      }}
     />
   );
 });
@@ -64,7 +94,7 @@ const ShelfRow = memo(function ShelfRow({
       <div
         className="shelf-row__books"
         style={{
-          height: layout.rowHeight - 16,
+          height: layout.rowHeight - METRICS.boardThickness,
           paddingInline: layout.sideMargin
         }}
       >

@@ -7,8 +7,8 @@
  * and there is no third-party asset licence to carry around.
  *
  * This module is pure and has no DOM dependency beyond OffscreenCanvas, so it
- * runs inside a worker — a 512² tile costs a few hundred thousand fbm
- * evaluations and would visibly stall the main thread.
+ * runs inside a worker — a tile costs one fbm evaluation per pixel per octave,
+ * which at 1024² is over a second of arithmetic and would stall the main thread.
  */
 
 // MARK: - Tileable value noise
@@ -99,9 +99,13 @@ function createNoise(seed) {
 
 // MARK: - Palette
 
-// Placed where iBooks' maple sat: warm honey, not orange, not pink.
-const LIGHTEST = [0.898, 0.776, 0.596]; // #e5c698
-const DARKEST = [0.612, 0.455, 0.282]; // #9c7448
+// Pale warm maple, as iBooks used. The range is deliberately narrow: this wood
+// is meant to be a quiet backdrop for cover art, and a wide range turns the
+// grain into the loudest thing on screen.
+const LIGHTEST = [0.906, 0.804, 0.635]; // #e7cda2
+const DARKEST = [0.722, 0.573, 0.373]; // #b8925f
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 // MARK: - Generation
 
@@ -113,7 +117,12 @@ const DARKEST = [0.612, 0.455, 0.282]; // #9c7448
  *   case), false runs it left-to-right (the shelf boards)
  * @param seed varying this gives visibly different boards from the same code
  */
-export function renderWoodTile(size, vertical, seed) {
+export function renderWoodTile(size, vertical, seed, grade = {}) {
+  // `contrast` pivots around mid-tone and `brightness` lifts the whole board.
+  // The boards are graded lighter than the back panel so the shelves separate
+  // from the recess behind them instead of dissolving into it.
+  const contrast = grade.contrast ?? 1;
+  const brightness = grade.brightness ?? 0;
   const noise = createNoise(seed);
   const pixels = new Uint8ClampedArray(size * size * 4);
 
@@ -129,22 +138,34 @@ export function renderWoodTile(size, vertical, seed) {
       // the sawtooth below break into visible facets.
       const wander = noise.fbm(across, along, 24, 6, 4) - 0.5;
       const drift2 = noise.fbm(across, along, 6, 2, 3) - 0.5;
-      const ringInput = across * 30 + wander * 1.6 + drift2 * 2.6;
+      // Widely spaced, gently wandering rings. This is finished maple, not a
+      // rough plank: the grain should be something you notice on second look.
+      const ringInput = across * 17 + wander * 0.9 + drift2 * 1.3;
       // Sawtooth rather than a sine: real rings have a hard edge on one side.
-      let ring = ringInput - Math.floor(ringInput);
-      ring = Math.pow(ring, 0.7);
+      const ring = ringInput - Math.floor(ringInput);
 
-      // Fine pores. Very fine across the grain, very coarse along it, which is
-      // what makes them read as streaks rather than blobs.
-      const pore = noise.fbm(across, along, 220, 6, 3);
+      // A gentle curve, deliberately. A steep one draws narrow dark lines and
+      // the panel turns into reeded screening — sharp, but nothing like the
+      // smooth pale case this is meant to be.
+      const line = Math.pow(ring, 0.85);
 
-      // Broad lightness variation, so the board isn't uniformly bright.
-      const drift = noise.fbm(across, along, 4, 3, 3);
+      // Fine pores, kept faint. They exist to stop large areas going flat, not
+      // to be read as texture in their own right.
+      const pore = noise.fbm(across, along, 240, 6, 3);
 
-      let t = ring * 0.46 + pore * 0.24 + drift * 0.3;
-      t = Math.min(Math.max((t - 0.16) / 0.7, 0), 1);
-      // Bias light: maple is pale, with the grain as darker accents.
-      t = Math.pow(t, 1.45);
+      // Broad lightness variation across the board, which is most of what makes
+      // real timber look like timber rather than printed paper.
+      const drift = noise.fbm(across, along, 5, 2, 4);
+
+      // Drift-dominant, so the wood reads as smooth stock with soft figure in
+      // it rather than as a field of stripes.
+      let t = line * 0.26 + pore * 0.16 + drift * 0.58;
+      t = clamp01((t - 0.2) / 0.6);
+      // Bias light: pale maple, with the grain as the faintest of accents.
+      t = Math.pow(t, 1.35);
+      // Graded last, so contrast acts on the finished tone rather than on one
+      // of the three components feeding it.
+      t = clamp01((t - 0.5) * contrast + 0.5 - brightness);
 
       const i = (py * size + px) * 4;
       pixels[i] = (LIGHTEST[0] + (DARKEST[0] - LIGHTEST[0]) * t) * 255;

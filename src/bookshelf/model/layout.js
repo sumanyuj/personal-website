@@ -8,7 +8,7 @@
 
 export const METRICS = {
   /** Thickness of a shelf board, including its rounded front edge. */
-  boardThickness: 16,
+  boardThickness: 20,
   /** Gap between the top of a book and the board above it. */
   headroom: 16,
   /**

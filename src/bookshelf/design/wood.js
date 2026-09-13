@@ -9,6 +9,9 @@ import { getTexture, putTexture } from '../model/db.js';
  * reproducing a bitmap that cannot have changed.
  */
 
+/** Bump when the generator changes, to retire every cached tile. */
+const TEXTURE_VERSION = 6;
+
 const inFlight = new Map();
 
 /**
@@ -49,11 +52,11 @@ function ensureWorker() {
   return worker;
 }
 
-function renderInWorker(size, vertical, seed) {
+function renderInWorker(size, vertical, seed, grade) {
   return new Promise((resolve, reject) => {
     const id = nextJobId++;
     pending.set(id, { resolve, reject });
-    ensureWorker().postMessage({ id, size, vertical, seed });
+    ensureWorker().postMessage({ id, size, vertical, seed, grade });
   });
 }
 
@@ -61,9 +64,14 @@ function renderInWorker(size, vertical, seed) {
  * Resolves to an object URL for the tile, or null if generation is unavailable —
  * callers fall back to a flat colour, so the shelves still read as wood.
  */
-export function woodTileURL(vertical, seed, cssTile) {
+export function woodTileURL(vertical, seed, cssTile, grade = {}) {
   const size = tileResolution(cssTile);
-  const key = `${size}-${vertical ? 'v' : 'h'}-${seed}`;
+  // TEXTURE_VERSION is part of the key so a change to the generator retires
+  // every cached tile; without it, anyone who had already loaded the app would
+  // keep being served the old, flatter wood forever.
+  const key =
+    `${TEXTURE_VERSION}-${size}-${vertical ? 'v' : 'h'}-${seed}` +
+    `-c${grade.contrast ?? 1}b${grade.brightness ?? 0}`;
   if (inFlight.has(key)) return inFlight.get(key);
 
   const job = (async () => {
@@ -77,7 +85,7 @@ export function woodTileURL(vertical, seed, cssTile) {
     if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') return null;
 
     try {
-      const blob = await renderInWorker(size, vertical, seed);
+      const blob = await renderInWorker(size, vertical, seed, grade);
       putTexture(key, blob).catch(() => {});
       return URL.createObjectURL(blob);
     } catch {
@@ -89,8 +97,17 @@ export function woodTileURL(vertical, seed, cssTile) {
   return job;
 }
 
-/** Grain direction and seed for each surface, matching the native app. */
+/**
+ * Grain direction, seed and tone for each surface.
+ *
+ * The boards are graded lighter and a touch more contrasty than the back panel.
+ * Previously both were generated identically and the panel was then buried under
+ * a heavy black overlay, which left the boards and the recess at nearly the same
+ * tone — the shelves did not separate, and the whole case read as flat and
+ * muddy. Putting the separation in the texture instead of in an overlay keeps
+ * the grain's contrast intact.
+ */
 export const WOOD = {
-  panel: { vertical: true, seed: 11, tile: 190 },
-  board: { vertical: false, seed: 7, tile: 430 }
+  panel: { vertical: true, seed: 11, tile: 300, grade: { contrast: 0.94, brightness: 0.0 } },
+  board: { vertical: false, seed: 7, tile: 520, grade: { contrast: 0.9, brightness: 0.1 } }
 };
