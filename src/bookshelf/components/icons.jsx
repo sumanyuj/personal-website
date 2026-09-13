@@ -77,3 +77,13 @@ export const SignOutIcon = (p) => (
     </g>
   </svg>
 );
+
+export const OfflineIcon = (p) => (
+  <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" {...p}>
+    <g {...base}>
+      <path d="M2 2.5l15.5 15.5" />
+      <path d="M5.2 8.6a7.6 7.6 0 0 1 2.3-1.4M2.4 6.2a11 11 0 0 1 3-2M17.6 6.2a11 11 0 0 0-7.9-2.9M14.9 8.7a7.6 7.6 0 0 0-1.6-1M7.6 12a4 4 0 0 1 4.6-.5" />
+      <path d="M10 16h.01" />
+    </g>
+  </svg>
+);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '../api.js';
+import useOnline from '../hooks/useOnline.js';
 import { makeBook, makeList, visibleBooks } from './book.js';
 import { saveCover, uploadExistingCover } from './covers.js';
 import { discardLegacyLibrary, readLegacyLibrary } from './legacy.js';
@@ -13,11 +14,23 @@ import { discardLegacyLibrary, readLegacyLibrary } from './legacy.js';
  * error on screen rather than leaving the two quietly disagreeing.
  */
 export default function useLibrary(user) {
+  const online = useOnline();
   const [books, setBooks] = useState([]);
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [importing, setImporting] = useState(false);
+  /** True while the shelf is showing what the cache had rather than the server. */
+  const [stale, setStale] = useState(false);
+
+  /**
+   * Writes are refused rather than queued. The server is the source of truth,
+   * and replaying an edit made hours ago over a newer one from another device
+   * is a worse outcome than being told to reconnect.
+   */
+  const requireOnline = useCallback(() => {
+    if (!online) throw new Error('You are offline — the shelf is read-only until you reconnect.');
+  }, [online]);
 
   /**
    * Cover URLs are derived, not stored: each carries the etag the server
@@ -37,6 +50,7 @@ export default function useLibrary(user) {
     const library = await api.fetchLibrary();
     setBooks(library.books);
     setLists(library.lists);
+    setStale(Boolean(library.fromCache));
     return library;
   }, []);
 
@@ -51,8 +65,9 @@ export default function useLibrary(user) {
 
         // A device that used the app before there were accounts still has its
         // books in IndexedDB. Only offered into an empty account, so this can
-        // never overwrite a library that is already up here.
-        if (library.books.length === 0) {
+        // never overwrite a library that is already up here — and never from a
+        // cached read, which would mistake "offline" for "empty".
+        if (library.books.length === 0 && !library.fromCache && online) {
           const legacy = await readLegacyLibrary();
           if (legacy && !cancelled) {
             setImporting(true);
@@ -86,47 +101,58 @@ export default function useLibrary(user) {
     };
   }, [user, load]);
 
+  // A reconnect should catch up with whatever the other devices did.
+  useEffect(() => {
+    if (!user || !online) return;
+    load().catch(() => {});
+  }, [user, online, load]);
+
   // MARK: Books
 
-  const addBook = useCallback(async (result) => {
-    const book = makeBook({
-      title: result.title,
-      subtitle: result.subtitle ?? null,
-      authors: result.authors ?? [],
-      publisher: result.publisher ?? null,
-      publishedDate: result.publishedDate ?? null,
-      pageCount: result.pageCount ?? null,
-      isbn13: result.isbn13 ?? null,
-      isbn10: result.isbn10 ?? null,
-      language: result.language ?? null,
-      description: result.summary ?? null,
-      subjects: result.subjects ?? [],
-      source: result.source || 'manual',
-      sortIndex: Date.now()
-    });
+  const addBook = useCallback(
+    async (result) => {
+      requireOnline();
+      const book = makeBook({
+        title: result.title,
+        subtitle: result.subtitle ?? null,
+        authors: result.authors ?? [],
+        publisher: result.publisher ?? null,
+        publishedDate: result.publishedDate ?? null,
+        pageCount: result.pageCount ?? null,
+        isbn13: result.isbn13 ?? null,
+        isbn10: result.isbn10 ?? null,
+        language: result.language ?? null,
+        description: result.summary ?? null,
+        subjects: result.subjects ?? [],
+        source: result.source || 'manual',
+        sortIndex: Date.now()
+      });
 
-    // The book reaches the shelf immediately with a cloth stand-in; the cover
-    // arrives a moment later rather than holding up the whole add.
-    const saved = (await api.putBook(book)).book;
-    setBooks((current) => [...current, saved]);
+      // The book reaches the shelf immediately with a cloth stand-in; the cover
+      // arrives a moment later rather than holding up the whole add.
+      const saved = (await api.putBook(book)).book;
+      setBooks((current) => [...current, saved]);
 
-    const coverSource = result.coverMasterURL ?? result.coverURL;
-    if (coverSource) {
-      const stored = await saveCover(book.id, coverSource, {
-        fallbackURL: result.coverURL
-      }).catch(() => null);
-      if (stored) {
-        setBooks((current) =>
-          current.map((b) =>
-            b.id === book.id ? { ...b, coverAspect: stored.aspect, coverEtag: stored.etag } : b
-          )
-        );
+      const coverSource = result.coverMasterURL ?? result.coverURL;
+      if (coverSource) {
+        const stored = await saveCover(book.id, coverSource, {
+          fallbackURL: result.coverURL
+        }).catch(() => null);
+        if (stored) {
+          setBooks((current) =>
+            current.map((b) =>
+              b.id === book.id ? { ...b, coverAspect: stored.aspect, coverEtag: stored.etag } : b
+            )
+          );
+        }
       }
-    }
-    return saved;
-  }, []);
+      return saved;
+    },
+    [requireOnline]
+  );
 
   const updateBook = useCallback(async (id, changes) => {
+    requireOnline();
     let updated;
     setBooks((current) =>
       current.map((b) => {
@@ -139,6 +165,7 @@ export default function useLibrary(user) {
   }, []);
 
   const removeBooks = useCallback(async (ids) => {
+    requireOnline();
     const set = new Set(ids);
     setBooks((current) => current.filter((b) => !set.has(b.id)));
     await Promise.all([...set].map((id) => api.deleteBook(id).catch(setError)));
@@ -148,6 +175,7 @@ export default function useLibrary(user) {
 
   const createList = useCallback(
     async (name) => {
+      requireOnline();
       const list = makeList(name, lists.length);
       setLists((current) => [...current, list]);
       await api.putList(list).catch(setError);
@@ -157,6 +185,7 @@ export default function useLibrary(user) {
   );
 
   const renameList = useCallback(async (id, name) => {
+    requireOnline();
     let updated;
     setLists((current) =>
       current.map((l) => {
@@ -169,6 +198,7 @@ export default function useLibrary(user) {
   }, []);
 
   const removeList = useCallback(async (id) => {
+    requireOnline();
     setLists((current) => current.filter((l) => l.id !== id));
 
     // Membership lives on the book, so dropping a collection has to clean up
@@ -187,6 +217,7 @@ export default function useLibrary(user) {
   }, []);
 
   const setMembership = useCallback(async (bookIds, listId, member) => {
+    requireOnline();
     let affected = [];
     setBooks((current) => {
       const ids = new Set(bookIds);
@@ -211,6 +242,9 @@ export default function useLibrary(user) {
     loading,
     importing,
     error,
+    online,
+    stale,
+    readOnly: !online,
     addBook,
     updateBook,
     removeBooks,

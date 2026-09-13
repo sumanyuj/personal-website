@@ -5,13 +5,14 @@ import BookDetailSheet from './components/BookDetailSheet.jsx';
 import CollectionsSheet from './components/CollectionsSheet.jsx';
 import LibraryList from './components/LibraryList.jsx';
 import Shelf, { BackPanel } from './components/Shelf.jsx';
-import { BooksIcon } from './components/icons.jsx';
+import { BooksIcon, OfflineIcon } from './components/icons.jsx';
 import useElementSize from './hooks/useElementSize.js';
 import useStoredState from './hooks/useStoredState.js';
 import useLibrary, { useVisibleBooks } from './model/useLibrary.js';
 import useSession from './hooks/useSession.js';
 import LoginScreen from './components/LoginScreen.jsx';
 import { coverURL } from './api.js';
+import { clearPrivateCaches } from './serviceWorker.js';
 import { chunk, clampZoom, shelfLayout } from './model/layout.js';
 
 const COMPACT_BREAKPOINT = 700;
@@ -112,16 +113,30 @@ export default function App() {
         onViewMode={setViewMode}
         editing={editing}
         onToggleEditing={() => {
+          if (library.readOnly) return;
           setEditing((e) => !e);
           setSelection(new Set());
         }}
         onAdd={() => setSheet('add')}
         onCollections={() => setSheet('collections')}
+        readOnly={library.readOnly}
         search={query}
         onSearch={setQuery}
         username={session.user.username}
-        onSignOut={session.signOut}
+        onSignOut={async () => {
+          // The next person to open this device must not find the cached
+          // shelf of the last one.
+          await session.signOut();
+          await clearPrivateCaches();
+        }}
       />
+
+      {library.readOnly && (
+        <div className="offline-bar" role="status">
+          <OfflineIcon />
+          Offline — showing your shelf as it was. Changes need a connection.
+        </div>
+      )}
 
       <div className="case" ref={caseRef}>
         <BackPanel />
@@ -144,7 +159,13 @@ export default function App() {
         ) : visible.length === 0 ? (
           <div className="empty">
             <BooksIcon />
-            <h2>{books.length === 0 ? 'No books yet' : 'Nothing matches'}</h2>
+            <h2>
+              {books.length === 0
+                ? library.readOnly
+                  ? 'Nothing saved offline'
+                  : 'No books yet'
+                : 'Nothing matches'}
+            </h2>
             <p>
               {books.length === 0
                 ? 'Search for a book and it will appear on the shelf, with its cover, publisher and page count.'
@@ -246,6 +267,7 @@ export default function App() {
           coverURL={coverURLs.get(detailBook.id)}
           masterURL={coverURL(detailBook)}
           lists={lists}
+          readOnly={library.readOnly}
           onChange={library.updateBook}
           onToggleList={(bookId, id, member) => library.setMembership([bookId], id, member)}
           onDelete={(id) => {

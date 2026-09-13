@@ -42,6 +42,7 @@ export default function BookDetailSheet({
   coverURL,
   masterURL,
   lists,
+  readOnly,
   onChange,
   onDelete,
   onToggleList,
@@ -49,13 +50,18 @@ export default function BookDetailSheet({
 }) {
   const [confirming, setConfirming] = useState(false);
   const set = (changes) => onChange(book.id, changes);
+  // Offline the fields are still worth reading, so they stay on screen and go
+  // read-only rather than disappearing.
+  const locked = Boolean(readOnly);
 
   return (
     <Sheet
       title={book.title}
       onClose={onClose}
       footer={
-        confirming ? (
+        locked ? (
+          <span style={{ width: 62 }} />
+        ) : confirming ? (
           <button type="button" className="cbtn" onClick={() => onDelete(book.id)}>
             Really remove?
           </button>
@@ -75,11 +81,15 @@ export default function BookDetailSheet({
         <div style={{ minWidth: 0 }}>
           <h3 className="detail__title">{book.title}</h3>
           <p className="detail__author">{authorLine(book)}</p>
-          <Stars value={book.rating} onChange={(rating) => set({ rating })} />
+          <Stars value={book.rating} onChange={(rating) => !locked && set({ rating })} />
           <div style={{ marginTop: 10 }}>
             <label className="field" style={{ marginBottom: 0 }}>
               <span>Status</span>
-              <select value={book.readStatus} onChange={(e) => set({ readStatus: e.target.value })}>
+              <select
+                disabled={locked}
+                value={book.readStatus}
+                onChange={(e) => set({ readStatus: e.target.value })}
+              >
                 {READ_STATUS.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label}
@@ -93,12 +103,17 @@ export default function BookDetailSheet({
 
       <label className="field">
         <span>Title</span>
-        <input value={book.title} onChange={(e) => set({ title: e.target.value })} />
+        <input
+          readOnly={locked}
+          value={book.title}
+          onChange={(e) => set({ title: e.target.value })}
+        />
       </label>
 
       <label className="field">
         <span>Authors</span>
         <input
+          readOnly={locked}
           value={(book.authors ?? []).join(', ')}
           onChange={(e) =>
             set({
@@ -115,6 +130,7 @@ export default function BookDetailSheet({
         <label className="field">
           <span>Publisher</span>
           <input
+            readOnly={locked}
             value={book.publisher ?? ''}
             onChange={(e) => set({ publisher: e.target.value || null })}
           />
@@ -122,6 +138,7 @@ export default function BookDetailSheet({
         <label className="field">
           <span>Published</span>
           <input
+            readOnly={locked}
             value={book.publishedDate ?? ''}
             onChange={(e) => set({ publishedDate: e.target.value || null })}
           />
@@ -132,6 +149,7 @@ export default function BookDetailSheet({
         <label className="field">
           <span>Pages</span>
           <input
+            readOnly={locked}
             type="number"
             min="0"
             value={book.pageCount ?? ''}
@@ -141,6 +159,7 @@ export default function BookDetailSheet({
         <label className="field">
           <span>ISBN</span>
           <input
+            readOnly={locked}
             value={book.isbn13 ?? ''}
             onChange={(e) => set({ isbn13: e.target.value || null })}
           />
@@ -159,6 +178,7 @@ export default function BookDetailSheet({
                   type="button"
                   className="chip"
                   aria-pressed={member}
+                  disabled={locked}
                   onClick={() => onToggleList(book.id, list.id, !member)}
                 >
                   {list.name}
@@ -172,6 +192,7 @@ export default function BookDetailSheet({
       <label className="field">
         <span>Description</span>
         <textarea
+          readOnly={locked}
           value={book.description ?? ''}
           onChange={(e) => set({ description: e.target.value || null })}
         />

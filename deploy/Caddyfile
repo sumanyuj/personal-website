@@ -31,6 +31,11 @@ sumanyuj.com, www.sumanyuj.com {
 	@immutable path /assets/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
+	# The service worker decides what everything else caches, so it must never
+	# be served stale — a wrong one would be sticky in a way nothing else is.
+	@serviceworker path /bookshelf/sw.js
+	header @serviceworker Cache-Control "no-cache"
+
 	# The HTML entry point must never be cached, or clients keep loading the
 	# previous release's asset URLs after a deploy.
 	@html path / /index.html

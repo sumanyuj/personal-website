@@ -1157,3 +1157,42 @@ body {
     padding: 20px 18px 16px;
   }
 }
+
+/* --------------------------------------------------------------- offline --- */
+
+.offline-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: none;
+  padding: 6px 12px;
+  background: linear-gradient(to bottom, #8a6a34, #6d5227);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  color: #fdf4e2;
+  font: 500 12px/1.3 var(--ui);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+  z-index: 5;
+}
+
+.cbtn[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.cbtn[disabled]:hover {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.06));
+}
+
+.field input[readonly],
+.field textarea[readonly],
+.field select[disabled] {
+  background: rgba(0, 0, 0, 0.035);
+  color: var(--ink-soft);
+}
+
+.chip[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}

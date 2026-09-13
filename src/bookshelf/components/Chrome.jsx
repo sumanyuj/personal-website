@@ -19,6 +19,7 @@ export const ChromeToolbar = memo(function ChromeToolbar({
   onToggleEditing,
   onAdd,
   onCollections,
+  readOnly,
   search,
   onSearch,
   username,
@@ -70,11 +71,25 @@ export const ChromeToolbar = memo(function ChromeToolbar({
         </button>
       </span>
 
-      <button type="button" className="cbtn cbtn--icon" onClick={onAdd} aria-label="Add a book">
+      <button
+        type="button"
+        className="cbtn cbtn--icon"
+        onClick={onAdd}
+        aria-label="Add a book"
+        disabled={readOnly}
+        title={readOnly ? 'Adding a book needs a connection' : 'Add a book'}
+      >
         <PlusIcon />
       </button>
 
-      <button type="button" className="cbtn" aria-pressed={editing} onClick={onToggleEditing}>
+      <button
+        type="button"
+        className="cbtn"
+        aria-pressed={editing}
+        onClick={onToggleEditing}
+        disabled={readOnly}
+        title={readOnly ? 'Editing needs a connection' : undefined}
+      >
         {editing ? 'Done' : 'Edit'}
       </button>
 

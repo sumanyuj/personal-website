@@ -33,6 +33,12 @@ async function request(path, { method = 'GET', body, raw, signal, headers = {} }
   if (!response.ok) {
     throw new ApiError(payload?.error ?? `Request failed (${response.status})`, response.status);
   }
+
+  // The service worker marks a response it served from its own cache, which is
+  // how the page can tell a live library from the last one it saw.
+  if (payload && typeof payload === 'object' && response.headers.get('x-from-cache') === '1') {
+    payload.fromCache = true;
+  }
   return payload;
 }
 
