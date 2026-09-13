@@ -192,9 +192,11 @@ async function route(req, res) {
     .replace(/^\/api\/?/, '')
     .split('/')
     .filter(Boolean);
-  const method = req.method ?? 'GET';
+  // HEAD routes as GET; anything else would 404 on endpoints that plainly
+  // exist, which is what monitoring and link checkers reach for first.
+  const method = (req.method ?? 'GET') === 'HEAD' ? 'GET' : req.method;
 
-  if (method !== 'GET' && method !== 'HEAD' && !sameOrigin(req)) {
+  if (method !== 'GET' && !sameOrigin(req)) {
     return fail(res, 403, 'Cross-origin requests are not allowed');
   }
 
@@ -256,7 +258,7 @@ async function route(req, res) {
         // private because it is one account's artwork behind a session.
         'cache-control': 'private, max-age=31536000, immutable'
       });
-      if (method === 'HEAD') return res.end();
+      if (req.method === 'HEAD') return res.end();
       return pipeline(found.stream(), res);
     }
 
