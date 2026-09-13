@@ -68,3 +68,12 @@ export const CollectionsIcon = (p) => (
     </g>
   </svg>
 );
+
+export const SignOutIcon = (p) => (
+  <svg width="15" height="15" viewBox="0 0 20 20" aria-hidden="true" {...p}>
+    <g {...base}>
+      <path d="M12.5 6V4.2a1.2 1.2 0 0 0-1.2-1.2H4.2A1.2 1.2 0 0 0 3 4.2v11.6A1.2 1.2 0 0 0 4.2 17h7.1a1.2 1.2 0 0 0 1.2-1.2V14" />
+      <path d="M8 10h9m0 0-2.6-2.6M17 10l-2.6 2.6" />
+    </g>
+  </svg>
+);

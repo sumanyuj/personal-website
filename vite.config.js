@@ -15,5 +15,8 @@ export default defineConfig({
       }
     }
   },
-  worker: { format: 'es' }
+  // Local development and preview talk to the API service the same way
+  // production does — same origin, /api — so cookies behave identically.
+  server: { proxy: { '/api': 'http://127.0.0.1:8787' } },
+  preview: { proxy: { '/api': 'http://127.0.0.1:8787' } }
 });

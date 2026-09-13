@@ -21,6 +21,12 @@ sumanyuj.com, www.sumanyuj.com {
 		-Server
 	}
 
+	# The API. Everything under /api is the bookshelf service; it listens on
+	# loopback only, so this is the sole way in and TLS is terminated here.
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8787
+	}
+
 	# Vite fingerprints everything under /assets, so it can be cached hard.
 	@immutable path /assets/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
@@ -31,9 +37,11 @@ sumanyuj.com, www.sumanyuj.com {
 	header @html Cache-Control "no-cache"
 
 	# The app has no client-side router, so there is no SPA fallback: an
-	# unknown path is a real 404 rather than the homepage served under the
-	# wrong URL.
-	file_server
+	# unknown path is a real 404 rather than a page served under the wrong URL.
+	handle {
+		file_server
+	}
+
 	handle_errors {
 		respond "{err.status_code} {err.status_text}" {err.status_code}
 	}

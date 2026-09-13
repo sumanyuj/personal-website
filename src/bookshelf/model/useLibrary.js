@@ -1,123 +1,130 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as db from './db.js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import * as api from '../api.js';
 import { makeBook, makeList, visibleBooks } from './book.js';
-import { backfillThumbs, requestPersistence, saveCover } from './covers.js';
+import { saveCover, uploadExistingCover } from './covers.js';
+import { discardLegacyLibrary, readLegacyLibrary } from './legacy.js';
 
 /**
- * The library and everything that mutates it.
+ * The library, and everything that changes it.
  *
- * State is held in React and written through to IndexedDB, rather than re-read
- * from it after every change: the store is the source of truth on disk, but a
- * round trip per keystroke in the detail editor would be felt.
+ * The server is the source of truth — that is the whole point of having
+ * accounts — so every change is written through and the local copy is updated
+ * optimistically rather than waiting on a round trip. A failed write puts the
+ * error on screen rather than leaving the two quietly disagreeing.
  */
-export default function useLibrary() {
+export default function useLibrary(user) {
   const [books, setBooks] = useState([]);
   const [lists, setLists] = useState([]);
-  const [coverURLs, setCoverURLs] = useState(() => new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [importing, setImporting] = useState(false);
 
-  // Object URLs must be revoked or the blobs stay resident for the life of the
-  // document; this holds the ones currently handed out.
-  const urlsRef = useRef(new Map());
+  /**
+   * Cover URLs are derived, not stored: each carries the etag the server
+   * assigned, so the browser caches one indefinitely and still picks up a
+   * replacement.
+   */
+  const coverURLs = useMemo(() => {
+    const map = new Map();
+    for (const book of books) {
+      const url = api.thumbURL(book);
+      if (url) map.set(book.id, url);
+    }
+    return map;
+  }, [books]);
 
-  const setCover = useCallback((bookId, blob) => {
-    const previous = urlsRef.current.get(bookId);
-    if (previous) URL.revokeObjectURL(previous);
-    const url = URL.createObjectURL(blob);
-    urlsRef.current.set(bookId, url);
-    setCoverURLs(new Map(urlsRef.current));
+  const load = useCallback(async () => {
+    const library = await api.fetchLibrary();
+    setBooks(library.books);
+    setLists(library.lists);
+    return library;
   }, []);
 
   useEffect(() => {
-    requestPersistence();
-  }, []);
-
-  useEffect(() => {
+    if (!user) return undefined;
     let cancelled = false;
 
     (async () => {
       try {
-        const [loadedBooks, loadedLists, covers] = await Promise.all([
-          db.allBooks(),
-          db.allLists(),
-          db.allCovers()
-        ]);
+        const library = await load();
         if (cancelled) return;
 
-        for (const [id, blob] of covers) urlsRef.current.set(id, URL.createObjectURL(blob));
-        setBooks(loadedBooks);
-        setLists(loadedLists);
-        setCoverURLs(new Map(urlsRef.current));
-
-        // Covers written before the thumbnail store existed have a master and
-        // no derivative, and the shelf draws derivatives — so those books would
-        // otherwise show a blank stand-in with their artwork still on disk.
-        backfillThumbs({
-          onThumb: (id, blob) => {
-            if (cancelled) return;
-            setCover(id, blob);
+        // A device that used the app before there were accounts still has its
+        // books in IndexedDB. Only offered into an empty account, so this can
+        // never overwrite a library that is already up here.
+        if (library.books.length === 0) {
+          const legacy = await readLegacyLibrary();
+          if (legacy && !cancelled) {
+            setImporting(true);
+            await api.importLibrary(legacy.books, legacy.lists);
+            for (const book of legacy.books) {
+              const master = legacy.covers.get(book.id);
+              if (!master) continue;
+              await uploadExistingCover(
+                book.id,
+                master,
+                legacy.thumbs.get(book.id),
+                book.coverAspect
+              ).catch(() => {});
+            }
+            await discardLegacyLibrary();
+            if (!cancelled) await load();
           }
-        }).catch(() => {});
+        }
       } catch (cause) {
-        // Reporting this matters: an unreadable store rendered as an empty
-        // shelf, which invites adding books that then cannot be saved either.
         if (!cancelled) setError(cause);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setImporting(false);
+          setLoading(false);
+        }
       }
     })();
 
-    const urls = urlsRef.current;
     return () => {
       cancelled = true;
-      for (const url of urls.values()) URL.revokeObjectURL(url);
-      urls.clear();
     };
-  }, []);
+  }, [user, load]);
 
   // MARK: Books
 
-  const addBook = useCallback(
-    async (result) => {
-      const book = makeBook({
-        title: result.title,
-        subtitle: result.subtitle ?? null,
-        authors: result.authors ?? [],
-        publisher: result.publisher ?? null,
-        publishedDate: result.publishedDate ?? null,
-        pageCount: result.pageCount ?? null,
-        isbn13: result.isbn13 ?? null,
-        isbn10: result.isbn10 ?? null,
-        language: result.language ?? null,
-        description: result.summary ?? null,
-        subjects: result.subjects ?? [],
-        source: result.source || 'manual',
-        sortIndex: Date.now()
-      });
+  const addBook = useCallback(async (result) => {
+    const book = makeBook({
+      title: result.title,
+      subtitle: result.subtitle ?? null,
+      authors: result.authors ?? [],
+      publisher: result.publisher ?? null,
+      publishedDate: result.publishedDate ?? null,
+      pageCount: result.pageCount ?? null,
+      isbn13: result.isbn13 ?? null,
+      isbn10: result.isbn10 ?? null,
+      language: result.language ?? null,
+      description: result.summary ?? null,
+      subjects: result.subjects ?? [],
+      source: result.source || 'manual',
+      sortIndex: Date.now()
+    });
 
-      // The book goes on the shelf immediately with a cloth stand-in; the cover
-      // arrives a moment later rather than holding up the whole add.
-      setBooks((current) => [...current, book]);
-      await db.putBook(book);
+    // The book reaches the shelf immediately with a cloth stand-in; the cover
+    // arrives a moment later rather than holding up the whole add.
+    const saved = (await api.putBook(book)).book;
+    setBooks((current) => [...current, saved]);
 
-      if (result.coverMasterURL || result.coverURL) {
-        const aspect = await saveCover(book.id, result.coverMasterURL ?? result.coverURL, {
-          fallbackURL: result.coverURL
-        }).catch(() => null);
-        if (aspect) {
-          const withCover = { ...book, coverAspect: aspect };
-          await db.putBook(withCover);
-          setBooks((current) => current.map((b) => (b.id === book.id ? withCover : b)));
-          const blob = await db.getThumb(book.id);
-          if (blob) setCover(book.id, blob);
-        }
+    const coverSource = result.coverMasterURL ?? result.coverURL;
+    if (coverSource) {
+      const stored = await saveCover(book.id, coverSource, {
+        fallbackURL: result.coverURL
+      }).catch(() => null);
+      if (stored) {
+        setBooks((current) =>
+          current.map((b) =>
+            b.id === book.id ? { ...b, coverAspect: stored.aspect, coverEtag: stored.etag } : b
+          )
+        );
       }
-
-      return book;
-    },
-    [setCover]
-  );
+    }
+    return saved;
+  }, []);
 
   const updateBook = useCallback(async (id, changes) => {
     let updated;
@@ -128,34 +135,14 @@ export default function useLibrary() {
         return updated;
       })
     );
-    if (updated) await db.putBook(updated);
+    if (updated) await api.putBook(updated).catch(setError);
   }, []);
 
   const removeBooks = useCallback(async (ids) => {
     const set = new Set(ids);
     setBooks((current) => current.filter((b) => !set.has(b.id)));
-    for (const id of ids) {
-      const url = urlsRef.current.get(id);
-      if (url) {
-        URL.revokeObjectURL(url);
-        urlsRef.current.delete(id);
-      }
-    }
-    setCoverURLs(new Map(urlsRef.current));
-    await db.deleteBooks([...set]);
+    await Promise.all([...set].map((id) => api.deleteBook(id).catch(setError)));
   }, []);
-
-  const replaceCover = useCallback(
-    async (bookId, url, fallbackURL) => {
-      const aspect = await saveCover(bookId, url, { fallbackURL });
-      if (!aspect) return false;
-      await updateBook(bookId, { coverAspect: aspect });
-      const blob = await db.getThumb(bookId);
-      if (blob) setCover(bookId, blob);
-      return true;
-    },
-    [setCover, updateBook]
-  );
 
   // MARK: Collections
 
@@ -163,7 +150,7 @@ export default function useLibrary() {
     async (name) => {
       const list = makeList(name, lists.length);
       setLists((current) => [...current, list]);
-      await db.putList(list);
+      await api.putList(list).catch(setError);
       return list;
     },
     [lists.length]
@@ -178,11 +165,12 @@ export default function useLibrary() {
         return updated;
       })
     );
-    if (updated) await db.putList(updated);
+    if (updated) await api.putList(updated).catch(setError);
   }, []);
 
   const removeList = useCallback(async (id) => {
     setLists((current) => current.filter((l) => l.id !== id));
+
     // Membership lives on the book, so dropping a collection has to clean up
     // every book that referenced it or they keep a dangling id forever.
     let affected = [];
@@ -193,8 +181,9 @@ export default function useLibrary() {
       const byId = new Map(affected.map((b) => [b.id, b]));
       return current.map((b) => byId.get(b.id) ?? b);
     });
-    await db.deleteList(id);
-    if (affected.length) await db.putBooks(affected);
+
+    await api.deleteList(id).catch(setError);
+    await Promise.all(affected.map((b) => api.putBook(b).catch(setError)));
   }, []);
 
   const setMembership = useCallback(async (bookIds, listId, member) => {
@@ -212,7 +201,7 @@ export default function useLibrary() {
       const byId = new Map(affected.map((b) => [b.id, b]));
       return current.map((b) => byId.get(b.id) ?? b);
     });
-    if (affected.length) await db.putBooks(affected);
+    await Promise.all(affected.map((b) => api.putBook(b).catch(setError)));
   }, []);
 
   return {
@@ -220,11 +209,11 @@ export default function useLibrary() {
     lists,
     coverURLs,
     loading,
+    importing,
     error,
     addBook,
     updateBook,
     removeBooks,
-    replaceCover,
     createList,
     renameList,
     removeList,

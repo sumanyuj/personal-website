@@ -74,6 +74,44 @@ replaces, so the usual "just use WebP" instinct is worth measuring here rather
 than assuming. At an 880px tile on a 2× display the panel needs 1760 device
 pixels, so 2048 is the right source size and nothing is ever scaled up.
 
+### Accounts
+
+The shelf is behind a username and password so it follows you between devices.
+
+A small Node service (`server/`) holds the library in SQLite and the cover files
+on disk, behind Caddy at `/api`. It has **no npm dependencies** — `node:sqlite`
+and `node:crypto` cover the database and the password hashing — so deploying it
+is copying a directory and restarting a unit, and there is nothing to install on
+the server.
+
+- Passwords are hashed with scrypt, parameters stored alongside each hash so
+  they can be raised later without invalidating anyone.
+- The session is an opaque token in an `HttpOnly`, `Secure`, `SameSite=Lax`
+  cookie, good for 400 days and renewed as you use it — that is what signs you
+  straight back in. Only the token's hash is stored, so a stolen database backup
+  is not a set of working cookies.
+- Login is rate-limited per username and address, and unknown accounts take the
+  same time to reject as wrong passwords.
+- State-changing requests must carry a same-origin `Origin` header.
+
+**Signups are closed unless a code is set.** `provision.sh` generates one into
+`/etc/bookshelf.env` and prints it; an empty or missing value means the register
+endpoint refuses everything, so a fresh box cannot be claimed by whoever finds
+it. To change it:
+
+```bash
+sudo sed -i 's/^BOOKSHELF_SIGNUP_CODE=.*/BOOKSHELF_SIGNUP_CODE=something-else/' /etc/bookshelf.env
+sudo systemctl restart bookshelf-api
+```
+
+The library and covers live in `/var/lib/bookshelf`, deliberately outside the
+deploy directory: deploys rsync with `--delete`, and a database inside one would
+be erased on the next push. That directory is the only thing worth backing up.
+
+A device that used the app before there were accounts still has its books in
+IndexedDB; the first sign-in on it moves them up, but only into an account whose
+shelf is empty, so this can never overwrite a library already on the server.
+
 ### Getting there from the homepage
 
 Knock every letter of the heading off with the books, and a bookshelf appears.

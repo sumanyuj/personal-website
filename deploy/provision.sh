@@ -39,6 +39,16 @@ apt-get install -y -qq \
 echo "==> Unattended security upgrades"
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
+echo "==> Node"
+# The API is plain Node with no npm dependencies; 22+ is needed for node:sqlite.
+if ! command -v node >/dev/null; then
+	curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+	apt-get install -y -qq nodejs
+fi
+node -e 'require("node:sqlite")' 2>/dev/null \
+	|| { echo "    !! this node has no node:sqlite (needs >= 22)" >&2; exit 1; }
+echo "    $(node -v)"
+
 echo "==> Caddy"
 if ! command -v caddy >/dev/null; then
 	curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
@@ -72,6 +82,35 @@ if [[ ! -e "${SITE_ROOT}/current" ]]; then
 	ln -sfnT "${SITE_ROOT}/releases/bootstrap" "${SITE_ROOT}/current"
 	chown -h "${DEPLOY_USER}:caddy" "${SITE_ROOT}/current"
 fi
+
+echo "==> Bookshelf API"
+id -u bookshelf >/dev/null 2>&1 || useradd --system --home /var/lib/bookshelf --shell /usr/sbin/nologin bookshelf
+# The database lives outside the deploy directory on purpose: deploys rsync
+# with --delete, and a library inside one would be erased on the next push.
+install -d -o bookshelf -g bookshelf -m 750 /var/lib/bookshelf
+install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 755 /opt/bookshelf /opt/bookshelf/releases
+
+if [[ ! -f /etc/bookshelf.env ]]; then
+	# Signups are closed until a code exists, so a fresh box cannot be
+	# registered against by whoever finds it first.
+	SIGNUP_CODE="$(head -c 18 /dev/urandom | base64 | tr -d '/+=' | head -c 20)"
+	printf 'BOOKSHELF_SIGNUP_CODE=%s\n' "$SIGNUP_CODE" > /etc/bookshelf.env
+	chmod 600 /etc/bookshelf.env
+	echo "    signup code: $SIGNUP_CODE"
+else
+	echo "    keeping the existing /etc/bookshelf.env"
+fi
+
+if [[ -f /tmp/bookshelf-api.service ]]; then
+	install -m 644 /tmp/bookshelf-api.service /etc/systemd/system/bookshelf-api.service
+	systemctl daemon-reload
+	systemctl enable bookshelf-api >/dev/null
+fi
+
+# The deploy user may restart the API and nothing else.
+echo "$DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/systemctl restart bookshelf-api" \
+	> /etc/sudoers.d/bookshelf-api
+chmod 440 /etc/sudoers.d/bookshelf-api
 
 echo "==> Firewall"
 ufw allow OpenSSH
@@ -118,6 +157,17 @@ for i in $(seq 1 10); do
 	}
 	sleep 1
 done
+
+# Start the API if code has already been deployed; a fresh box has none yet.
+if [[ -x /opt/bookshelf/current/index.js || -f /opt/bookshelf/current/index.js ]]; then
+	systemctl restart bookshelf-api
+	sleep 1
+	systemctl is-active --quiet bookshelf-api \
+		&& echo "    API running" \
+		|| { echo "    !! API failed to start:" >&2; journalctl -u bookshelf-api -n 20 --no-pager >&2; }
+else
+	echo "    no API deployed yet; it starts on the first push"
+fi
 
 echo
 echo "==> Done. Values for your GitHub repository secrets:"

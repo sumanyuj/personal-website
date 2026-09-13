@@ -5,6 +5,7 @@ import {
   GridIcon,
   ListIcon,
   PlusIcon,
+  SignOutIcon,
   SmallBookIcon
 } from './icons.jsx';
 import { METRICS } from '../model/layout.js';
@@ -19,7 +20,9 @@ export const ChromeToolbar = memo(function ChromeToolbar({
   onAdd,
   onCollections,
   search,
-  onSearch
+  onSearch,
+  username,
+  onSignOut
 }) {
   return (
     <header className="chrome">
@@ -73,6 +76,16 @@ export const ChromeToolbar = memo(function ChromeToolbar({
 
       <button type="button" className="cbtn" aria-pressed={editing} onClick={onToggleEditing}>
         {editing ? 'Done' : 'Edit'}
+      </button>
+
+      <button
+        type="button"
+        className="cbtn"
+        onClick={onSignOut}
+        title={`Signed in as ${username} — sign out`}
+      >
+        <span className="cbtn__label">{username}</span>
+        <SignOutIcon />
       </button>
     </header>
   );

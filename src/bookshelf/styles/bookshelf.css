@@ -1051,3 +1051,109 @@ body {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------- signin --- */
+
+.app--booting {
+  background: var(--recess);
+}
+
+.signin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 24px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 240, 205, 0.1), transparent 60%), var(--recess);
+}
+
+.signin__card {
+  display: flex;
+  flex-direction: column;
+  width: min(380px, 100%);
+  padding: 26px 24px 20px;
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.5) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 3px), var(--linen);
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.signin__mark {
+  align-self: center;
+  color: var(--title, #6d4c27);
+  opacity: 0.8;
+}
+
+.signin__title {
+  margin: 6px 0 4px;
+  text-align: center;
+  font: 400 26px/1.2 var(--serif);
+  color: #3f2f16;
+}
+
+.signin__blurb {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.signin__error {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: rgba(163, 34, 31, 0.1);
+  border: 1px solid rgba(163, 34, 31, 0.35);
+  color: #7e1a18;
+  font-size: 12.5px;
+}
+
+/* .cbtn is white lettering built for the graphite toolbar; on linen it needs a
+   dark face of its own or it reads as an empty box. */
+.signin__submit {
+  justify-content: center;
+  margin-top: 4px;
+  padding: 9px 12px;
+  font-size: 14px;
+  background: linear-gradient(to bottom, var(--chrome-top), var(--chrome-bottom));
+  border-color: var(--chrome-hairline);
+}
+
+.signin__submit:hover:not([disabled]) {
+  background: linear-gradient(to bottom, #7d8086, var(--chrome-bottom));
+}
+
+.signin__submit[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.signin__switch {
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.signin__note {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 620px) {
+  /* The username is the sign-out button's label; on a phone the icon carries it. */
+  .signin__card {
+    padding: 20px 18px 16px;
+  }
+}

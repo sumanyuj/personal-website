@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Sheet from './Sheet.jsx';
 import { READ_STATUS, authorLine } from '../model/book.js';
-import { getCover } from '../model/db.js';
 
 function Stars({ value, onChange }) {
   return (
@@ -30,10 +29,18 @@ function Stars({ value, onChange }) {
   );
 }
 
-/** Every field is editable — source metadata is good, never perfect. */
+/**
+ * Every field is editable — source metadata is good, never perfect.
+ *
+ * The shelf draws a display-sized derivative to keep its memory sane. Here the
+ * cover is actually looked at, so the full-resolution master is used; both are
+ * ordinary URLs the browser caches by etag, so there is nothing to load or
+ * release by hand.
+ */
 export default function BookDetailSheet({
   book,
   coverURL,
+  masterURL,
   lists,
   onChange,
   onDelete,
@@ -41,30 +48,7 @@ export default function BookDetailSheet({
   onClose
 }) {
   const [confirming, setConfirming] = useState(false);
-  // The shelf draws a display-sized derivative to keep its memory sane; here the
-  // cover is actually looked at, so the full-resolution master is loaded on open
-  // and released again on close.
-  const [masterURL, setMasterURL] = useState(null);
   const set = (changes) => onChange(book.id, changes);
-
-  useEffect(() => {
-    let url = null;
-    let cancelled = false;
-
-    getCover(book.id)
-      .then((blob) => {
-        if (cancelled || !blob) return;
-        url = URL.createObjectURL(blob);
-        setMasterURL(url);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-      setMasterURL(null);
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [book.id]);
 
   return (
     <Sheet

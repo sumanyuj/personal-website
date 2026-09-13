@@ -12,6 +12,9 @@ concurrency:
 env:
   # Where the site lives on the server. Caddy serves $SITE_ROOT/current.
   SITE_ROOT: /var/www/sumanyuj.com
+  # The API, deployed the same way but well outside the web root — under it,
+  # Caddy would happily serve the service's own source as text.
+  API_ROOT: /opt/bookshelf
   KEEP_RELEASES: 5
 
 jobs:
@@ -117,6 +120,47 @@ jobs:
             fi
           REMOTE
 
+      - name: Deploy the API
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE="${API_ROOT}/releases/${GITHUB_SHA}"
+          ssh hetzner "mkdir -p '${API_ROOT}/releases'"
+
+          # No node_modules: the service is Node builtins only, so this is a
+          # few files and needs nothing installed on the server.
+          rsync -az --delete --link-dest="${API_ROOT}/current/" ./server/ "hetzner:${RELEASE}/"
+
+          ssh hetzner bash -euo pipefail -s -- "$API_ROOT" "$GITHUB_SHA" "$KEEP_RELEASES" <<'REMOTE'
+            api_root=$1; sha=$2; keep=$3
+            release="$api_root/releases/$sha"
+
+            test -f "$release/index.js" || { echo "index.js missing in $release" >&2; exit 1; }
+
+            ln -sfnT "$release" "$api_root/current.tmp"
+            mv -T "$api_root/current.tmp" "$api_root/current"
+
+            sudo systemctl restart bookshelf-api
+
+            # Fail the deploy rather than leave a dead API behind a live site.
+            for i in $(seq 1 20); do
+              if curl -fsS --max-time 2 http://127.0.0.1:8787/api/auth/me >/dev/null; then
+                echo "API healthy"; break
+              fi
+              [ "$i" = 20 ] && {
+                echo "API did not come up:" >&2
+                systemctl status bookshelf-api --no-pager -l 2>&1 | tail -20 >&2
+                exit 1
+              }
+              sleep 0.5
+            done
+
+            cd "$api_root/releases"
+            live=$(basename "$(readlink -f "$api_root/current")")
+            stale=$(ls -1dt */ | sed 's#/$##' | tail -n "+$((keep + 1))" | grep -vxF "$live" || true)
+            if [ -n "$stale" ]; then printf '%s\n' "$stale" | xargs rm -rf --; fi
+          REMOTE
+
       - name: Smoke test
         shell: bash
         run: |
@@ -124,3 +168,7 @@ jobs:
           code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 2 https://sumanyuj.com/)
           echo "GET https://sumanyuj.com/ -> $code"
           [ "$code" = "200" ]
+
+          api=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 2 https://sumanyuj.com/api/auth/me)
+          echo "GET https://sumanyuj.com/api/auth/me -> $api"
+          [ "$api" = "200" ]

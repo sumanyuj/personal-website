@@ -1,0 +1,35 @@
+[Unit]
+Description=Bookshelf API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bookshelf
+Group=bookshelf
+WorkingDirectory=/opt/bookshelf/current
+ExecStart=/usr/bin/node /opt/bookshelf/current/index.js
+Restart=on-failure
+RestartSec=2
+
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=HOST=127.0.0.1
+Environment=BOOKSHELF_DATA=/var/lib/bookshelf
+Environment=BOOKSHELF_ORIGIN=https://sumanyuj.com
+# The signup code lives here, outside the repo. Empty or absent closes signups.
+EnvironmentFile=-/etc/bookshelf.env
+
+# The service needs its data directory and nothing else on the disk.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/bookshelf
+
+[Install]
+WantedBy=multi-user.target

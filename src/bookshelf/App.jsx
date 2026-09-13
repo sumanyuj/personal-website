@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChromeToolbar, EditBar, ShelfBottomBar } from './components/Chrome.jsx';
 import AddBookSheet from './components/AddBookSheet.jsx';
 import BookDetailSheet from './components/BookDetailSheet.jsx';
@@ -9,12 +9,16 @@ import { BooksIcon } from './components/icons.jsx';
 import useElementSize from './hooks/useElementSize.js';
 import useStoredState from './hooks/useStoredState.js';
 import useLibrary, { useVisibleBooks } from './model/useLibrary.js';
+import useSession from './hooks/useSession.js';
+import LoginScreen from './components/LoginScreen.jsx';
+import { coverURL } from './api.js';
 import { chunk, clampZoom, shelfLayout } from './model/layout.js';
 
 const COMPACT_BREAKPOINT = 700;
 
 export default function App() {
-  const library = useLibrary();
+  const session = useSession();
+  const library = useLibrary(session.user);
   const { books, lists, coverURLs } = library;
 
   const [zoom, setZoom] = useStoredState('bookshelf:zoom', 1);
@@ -30,8 +34,7 @@ export default function App() {
   const [page, setPage] = useState(0);
   const [toast, setToast] = useState(null);
 
-  const caseRef = useRef(null);
-  const { width, height } = useElementSize(caseRef);
+  const [caseRef, { width, height }, caseNode] = useElementSize();
   const compact = width > 0 && width < COMPACT_BREAKPOINT;
 
   const visible = useVisibleBooks(books, { listId, query, sortOrder });
@@ -75,17 +78,30 @@ export default function App() {
 
   // Trackpad pinch and ctrl+wheel arrive as wheel events with ctrlKey set.
   useEffect(() => {
-    const element = caseRef.current;
-    if (!element || viewMode !== 'shelf') return undefined;
+    if (!caseNode || viewMode !== 'shelf') return undefined;
 
     const onWheel = (event) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
       setZoom((current) => clampZoom(current * (1 - event.deltaY * 0.01)));
     };
-    element.addEventListener('wheel', onWheel, { passive: false });
-    return () => element.removeEventListener('wheel', onWheel);
-  }, [viewMode, setZoom]);
+    caseNode.addEventListener('wheel', onWheel, { passive: false });
+    return () => caseNode.removeEventListener('wheel', onWheel);
+  }, [caseNode, viewMode, setZoom]);
+
+  // Gated before the shelf mounts, so nothing that needs an account is ever
+  // rendered without one.
+  if (session.checking) return <div className="app app--booting" />;
+
+  if (!session.user) {
+    return (
+      <LoginScreen
+        signupOpen={session.signupOpen}
+        onSignIn={session.signIn}
+        onSignUp={session.signUp}
+      />
+    );
+  }
 
   return (
     <div className="app">
@@ -103,19 +119,26 @@ export default function App() {
         onCollections={() => setSheet('collections')}
         search={query}
         onSearch={setQuery}
+        username={session.user.username}
+        onSignOut={session.signOut}
       />
 
       <div className="case" ref={caseRef}>
         <BackPanel />
 
-        {library.loading ? null : library.error ? (
+        {library.loading ? null : library.importing ? (
           <div className="empty">
             <BooksIcon />
-            <h2>The library could not be opened</h2>
+            <h2>Moving your shelf up</h2>
+            <p>Books saved on this device are being copied to your account.</p>
+          </div>
+        ) : library.error ? (
+          <div className="empty">
+            <BooksIcon />
+            <h2>Could not load your library</h2>
             <p>
-              Browser storage is unavailable. This happens in private browsing, or when another tab
-              is holding an older version of the database — closing other tabs and reloading usually
-              clears it.
+              {library.error?.message ?? 'The server did not answer.'} Reloading usually clears it;
+              if it does not, the service may be down.
             </p>
           </div>
         ) : visible.length === 0 ? (
@@ -221,6 +244,7 @@ export default function App() {
         <BookDetailSheet
           book={detailBook}
           coverURL={coverURLs.get(detailBook.id)}
+          masterURL={coverURL(detailBook)}
           lists={lists}
           onChange={library.updateBook}
           onToggleList={(bookId, id, member) => library.setMembership([bookId], id, member)}
