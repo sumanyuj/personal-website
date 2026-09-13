@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as db from './db.js';
 import { makeBook, makeList, visibleBooks } from './book.js';
-import { requestPersistence, saveCover } from './covers.js';
+import { backfillThumbs, requestPersistence, saveCover } from './covers.js';
 
 /**
  * The library and everything that mutates it.
@@ -49,6 +49,16 @@ export default function useLibrary() {
         setBooks(loadedBooks);
         setLists(loadedLists);
         setCoverURLs(new Map(urlsRef.current));
+
+        // Covers written before the thumbnail store existed have a master and
+        // no derivative, and the shelf draws derivatives — so those books would
+        // otherwise show a blank stand-in with their artwork still on disk.
+        backfillThumbs({
+          onThumb: (id, blob) => {
+            if (cancelled) return;
+            setCover(id, blob);
+          }
+        }).catch(() => {});
       } catch (cause) {
         // Reporting this matters: an unreadable store rendered as an empty
         // shelf, which invites adding books that then cannot be saved either.

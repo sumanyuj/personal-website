@@ -1,4 +1,4 @@
-import { putCover } from './db.js';
+import { STORE, getCover, keysIn, putCover, putThumb } from './db.js';
 
 /**
  * Cover art, kept at the resolution the source actually holds.
@@ -135,6 +135,45 @@ export async function saveCover(bookId, url, { signal, fallbackURL } = {}) {
   if (!cover) return null;
   await putCover(bookId, cover.master, cover.thumb);
   return cover.aspect;
+}
+
+/**
+ * Derives the missing display-sized copies for covers stored before there was a
+ * thumbnail store.
+ *
+ * The shelf draws thumbnails, so books added by an earlier version — which wrote
+ * only the master — came back as blank cloth stand-ins with their artwork still
+ * sitting in the database. Adding the store was not enough on its own; the
+ * existing rows had to be migrated.
+ *
+ * Runs in the background after the library loads and reports each thumbnail as
+ * it lands, so covers reappear without the shelf waiting on the whole batch.
+ */
+export async function backfillThumbs({ onThumb, signal } = {}) {
+  const [coverKeys, thumbKeys] = await Promise.all([keysIn(STORE.covers), keysIn(STORE.thumbs)]);
+  const have = new Set(thumbKeys ?? []);
+  const missing = (coverKeys ?? []).filter((key) => !have.has(key));
+
+  for (const id of missing) {
+    if (signal?.aborted) return;
+    let bitmap;
+    try {
+      const master = await getCover(id);
+      if (!master) continue;
+
+      bitmap = await createImageBitmap(master);
+      const aspect = bitmap.width / bitmap.height;
+      const thumb =
+        bitmap.width > THUMB_WIDTH ? ((await makeThumb(bitmap, aspect)) ?? master) : master;
+
+      await putThumb(id, thumb);
+      onThumb?.(id, thumb);
+    } catch {
+      // A single unreadable blob should not stop the rest of the migration.
+    } finally {
+      bitmap?.close?.();
+    }
+  }
 }
 
 /**

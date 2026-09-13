@@ -187,6 +187,15 @@ export function getThumb(bookId) {
   return run(STORE.thumbs, 'readonly', (store) => request(store.get(bookId)));
 }
 
+export function putThumb(bookId, blob) {
+  return run(STORE.thumbs, 'readwrite', (store) => store.put(blob, bookId));
+}
+
+/** Keys only, for working out which covers still need a derivative. */
+export function keysIn(storeName) {
+  return run(storeName, 'readonly', (store) => request(store.getAllKeys()));
+}
+
 export function putCover(bookId, full, thumb) {
   return run([STORE.covers, STORE.thumbs], 'readwrite', ({ covers, thumbs }) => {
     covers.put(full, bookId);
