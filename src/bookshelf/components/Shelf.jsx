@@ -111,9 +111,11 @@ function Shelf({
 
   const rowProps = { layout, coverURLs, selection, editing, onOpen };
 
+  const shelvesStyle = { '--case-padding': `${layout.sidePadding}px` };
+
   if (compact) {
     return (
-      <div className="shelves case__scroll">
+      <div className="shelves case__scroll" style={shelvesStyle}>
         {rows(books).map((row, i) => (
           <ShelfRow key={i} books={row} {...rowProps} />
         ))}
@@ -134,7 +136,7 @@ function Shelf({
       {pages.map((pageBooks, index) => {
         const pageRows = rows(pageBooks);
         return (
-          <div className="case__page shelves" key={index}>
+          <div className="case__page shelves" key={index} style={shelvesStyle}>
             {pageRows.map((row, i) => (
               <ShelfRow key={i} books={row} {...rowProps} />
             ))}

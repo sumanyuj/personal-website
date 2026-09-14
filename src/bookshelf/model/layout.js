@@ -21,33 +21,66 @@ export const METRICS = {
   /** Slot width as a fraction of book height. */
   slotRatio: 0.8,
   /** Horizontal padding on the case, matching .shelves. */
-  sidePadding: 24
+  sidePadding: 24,
+  /** The same, on a phone, where 24 either side is a sixth of the screen. */
+  compactSidePadding: 10,
+  /** How tall a book stands on a phone at zoom 1. */
+  compactBookHeight: 210
 };
 
 export const clampZoom = (z) => Math.min(Math.max(z, METRICS.minZoom), METRICS.maxZoom);
 
 export function shelfLayout({ width, height, compact, zoom = 1 }) {
   const z = clampZoom(zoom);
-  const usableWidth = Math.max(width - METRICS.sidePadding * 2 - 8, 160);
+  const sidePadding = compact ? METRICS.compactSidePadding : METRICS.sidePadding;
+  const usableWidth = Math.max(width - sidePadding * 2 - 8, 160);
   const usableHeight = Math.max(height - 8, 160);
 
-  // Rows first, from the smallest opening that is still worth looking at. Zoom
-  // scales that threshold, which is enough to drive the whole layout: book
-  // height follows from the opening, and column count follows from book height.
-  const minRow = METRICS.minRowHeight * z;
-  const rows = Math.max(1, Math.floor(usableHeight / minRow));
-  const rowHeight = usableHeight / rows;
+  const minColumns = compact ? 2 : 1;
 
-  // Fill the opening rather than leaving a bare strip of wood above the books.
-  const bookHeight = Math.round(
-    Math.min(
-      METRICS.maxBookHeight * z,
-      Math.max(METRICS.minBookHeight, rowHeight - METRICS.boardThickness - METRICS.headroom)
-    )
-  );
+  /*
+   * Width can be the binding constraint, and on a phone it usually is: a book
+   * tall enough to fill the opening is too wide for two to fit across 375
+   * points. Capping the height by the width the slots have to share is what
+   * stops the row overflowing and the second book being sliced off.
+   */
+  const widthCap = usableWidth / minColumns / METRICS.slotRatio;
 
-  const slotWidth = Math.round(bookHeight * METRICS.slotRatio);
-  const columns = Math.max(compact ? 2 : 1, Math.floor(usableWidth / slotWidth));
+  let rows;
+  let rowHeight;
+  let bookHeight;
+
+  if (compact) {
+    // Phones scroll, so the opening is sized from the book rather than
+    // stretched to fill the screen. Dividing the viewport into rows here gives
+    // one enormous shelf and puts the rest below the fold.
+    bookHeight = Math.round(
+      Math.min(
+        METRICS.maxBookHeight * z,
+        widthCap,
+        Math.max(METRICS.minBookHeight, METRICS.compactBookHeight * z)
+      )
+    );
+    rowHeight = bookHeight + METRICS.boardThickness + METRICS.headroom;
+    rows = Math.max(1, Math.floor(usableHeight / rowHeight));
+  } else {
+    // Roomy screens page, so the rows divide the height exactly and the last
+    // board sits on the bottom edge rather than leaving a bare strip.
+    const minRow = METRICS.minRowHeight * z;
+    rows = Math.max(1, Math.floor(usableHeight / minRow));
+    rowHeight = usableHeight / rows;
+    bookHeight = Math.round(
+      Math.min(
+        METRICS.maxBookHeight * z,
+        widthCap,
+        Math.max(METRICS.minBookHeight, rowHeight - METRICS.boardThickness - METRICS.headroom)
+      )
+    );
+  }
+
+  const slotWidth = Math.max(48, Math.round(bookHeight * METRICS.slotRatio));
+  // widthCap guarantees minColumns slots fit, so this can never overflow.
+  const columns = Math.max(minColumns, Math.floor(usableWidth / slotWidth));
 
   return {
     rows,
@@ -55,6 +88,10 @@ export function shelfLayout({ width, height, compact, zoom = 1 }) {
     rowHeight,
     bookHeight,
     slotWidth,
+    // Returned rather than set in CSS: the padding and the width the columns
+    // were fitted into have to be the same number, and a media query breakpoint
+    // that drifts from the compact threshold puts them quietly out of step.
+    sidePadding,
     perPage: rows * columns
   };
 }
